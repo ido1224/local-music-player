@@ -8,6 +8,7 @@ import com.nera.musicplayer.data.LibrarySortOrder
 import com.nera.musicplayer.data.MusicRepository
 import com.nera.musicplayer.data.Track
 import com.nera.musicplayer.data.TrackWithFeatures
+import com.nera.musicplayer.similarity.SimilarityEngine
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -56,5 +57,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
 
     fun deleteTrackFile(track: Track) {
         viewModelScope.launch { repository.deleteTrackFile(track) }
+    }
+
+    /** Ranks the current library by similarity to [seed] using [SimilarityEngine], most similar first. */
+    fun findSimilarTracks(seed: TrackWithFeatures, limit: Int = DEFAULT_SIMILAR_LIMIT): List<TrackWithFeatures> =
+        SimilarityEngine.rankSimilar(seed, tracksWithFeatures.value, limit)
+
+    companion object {
+        private const val DEFAULT_SIMILAR_LIMIT = 20
     }
 }

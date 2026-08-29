@@ -127,7 +127,14 @@ fun HomeScreen(
                                 energy = item.energy,
                                 onClick = { playerViewModel.playQueue(tracks.map { it.track }, index) },
                                 onRemoveFromLibrary = { libraryViewModel.removeFromLibrary(item.track) },
-                                onDeleteFile = { libraryViewModel.deleteTrackFile(item.track) }
+                                onDeleteFile = { libraryViewModel.deleteTrackFile(item.track) },
+                                onMoreLikeThis = if (item.bpm != null && item.energy != null) {
+                                    {
+                                        val similar = libraryViewModel.findSimilarTracks(item)
+                                        val queue = listOf(item.track) + similar.map { it.track }
+                                        playerViewModel.playQueue(queue, 0)
+                                    }
+                                } else null
                             )
                         }
                     }
@@ -145,7 +152,8 @@ private fun TrackRow(
     energy: Float?,
     onClick: () -> Unit,
     onRemoveFromLibrary: () -> Unit,
-    onDeleteFile: () -> Unit
+    onDeleteFile: () -> Unit,
+    onMoreLikeThis: (() -> Unit)?
 ) {
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirm by remember { mutableStateOf(false) }
@@ -171,6 +179,15 @@ private fun TrackRow(
                 )
         )
         DropdownMenu(expanded = showMenu, onDismissRequest = { showMenu = false }) {
+            if (onMoreLikeThis != null) {
+                DropdownMenuItem(
+                    text = { Text("More like this") },
+                    onClick = {
+                        showMenu = false
+                        onMoreLikeThis()
+                    }
+                )
+            }
             DropdownMenuItem(
                 text = { Text("Remove from library") },
                 onClick = {
