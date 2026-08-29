@@ -26,6 +26,9 @@ class PlaylistViewModel(application: Application) : AndroidViewModel(application
     private val _selectedPlaylist = MutableStateFlow<Playlist?>(null)
     val selectedPlaylist: StateFlow<Playlist?> = _selectedPlaylist
 
+    private val _isRegenerating = MutableStateFlow(false)
+    val isRegenerating: StateFlow<Boolean> = _isRegenerating
+
     val selectedPlaylistTracks: StateFlow<List<Track>> = _selectedPlaylist
         .flatMapLatest { playlist ->
             if (playlist == null) flowOf(emptyList()) else repository.tracksInPlaylist(playlist.id)
@@ -70,5 +73,17 @@ class PlaylistViewModel(application: Application) : AndroidViewModel(application
     fun moveTrack(fromPosition: Int, toPosition: Int) {
         val playlistId = _selectedPlaylist.value?.id ?: return
         viewModelScope.launch { repository.moveTrack(playlistId, fromPosition, toPosition) }
+    }
+
+    /** Clusters the library into fresh AI playlists on demand; never runs on its own. */
+    fun regenerateGeneratedPlaylists() {
+        viewModelScope.launch {
+            _isRegenerating.value = true
+            try {
+                repository.regenerateGeneratedPlaylists()
+            } finally {
+                _isRegenerating.value = false
+            }
+        }
     }
 }

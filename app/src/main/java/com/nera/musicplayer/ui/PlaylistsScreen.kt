@@ -3,20 +3,27 @@ package com.nera.musicplayer.ui
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -39,6 +46,7 @@ fun PlaylistsScreen(
     onOpenPlaylist: (Playlist) -> Unit
 ) {
     val playlists by playlistViewModel.playlists.collectAsState()
+    val isRegenerating by playlistViewModel.isRegenerating.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -47,6 +55,12 @@ fun PlaylistsScreen(
                 title = { Text("Playlists") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
+                    IconButton(
+                        onClick = { playlistViewModel.regenerateGeneratedPlaylists() },
+                        enabled = !isRegenerating
+                    ) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Regenerate AI playlists")
+                    }
                     IconButton(onClick = { showCreateDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Create playlist")
                     }
@@ -59,9 +73,12 @@ fun PlaylistsScreen(
                 .padding(padding)
                 .fillMaxSize()
         ) {
+            if (isRegenerating) {
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            }
             if (playlists.isEmpty()) {
                 Text(
-                    text = "No playlists yet. Tap + to create one.",
+                    text = "No playlists yet. Tap + to create one, or the refresh icon to generate AI playlists from your library.",
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(24.dp)
@@ -76,7 +93,15 @@ fun PlaylistsScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             ListItem(
-                                headlineContent = { Text(playlist.name) },
+                                headlineContent = {
+                                    Row(verticalAlignment = Alignment.CenterVertically) {
+                                        Text(playlist.name)
+                                        if (playlist.isGenerated) {
+                                            Spacer(modifier = Modifier.width(8.dp))
+                                            AiBadge()
+                                        }
+                                    }
+                                },
                                 modifier = Modifier.weight(1f)
                             )
                             TextButton(onClick = { playlistViewModel.deletePlaylist(playlist) }) {
@@ -111,6 +136,21 @@ fun PlaylistsScreen(
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) { Text("Cancel") }
             }
+        )
+    }
+}
+
+@Composable
+private fun AiBadge() {
+    Surface(
+        shape = RoundedCornerShape(4.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Text(
+            text = "AI",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
     }
 }
