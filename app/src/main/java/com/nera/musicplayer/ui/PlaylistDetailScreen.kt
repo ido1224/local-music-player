@@ -11,8 +11,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -48,25 +52,51 @@ fun PlaylistDetailScreen(
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(playlist?.name ?: "Playlist") },
-                navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
-                actions = {
-                    if (playlist?.isGenerated == true) {
-                        TextButton(onClick = { playlistViewModel.promoteSelectedPlaylistToManual() }) {
-                            Text("Promote to manual")
-                        }
+                title = { Text(playlist?.name ?: "Playlist", maxLines = 1) },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
                     }
-                    TextButton(onClick = { showRenameDialog = true }) { Text("Rename") }
-                    TextButton(onClick = {
-                        playlist?.let { playlistViewModel.deletePlaylist(it) }
-                        onBack()
-                    }) { Text("Delete") }
+                },
+                actions = {
                     IconButton(onClick = { showAddDialog = true }) {
                         Icon(Icons.Default.Add, contentDescription = "Add tracks")
+                    }
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
+                            if (playlist?.isGenerated == true) {
+                                DropdownMenuItem(
+                                    text = { Text("Promote to manual") },
+                                    onClick = {
+                                        showOverflowMenu = false
+                                        playlistViewModel.promoteSelectedPlaylistToManual()
+                                    }
+                                )
+                            }
+                            DropdownMenuItem(
+                                text = { Text("Rename") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    showRenameDialog = true
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Delete") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    playlist?.let { playlistViewModel.deletePlaylist(it) }
+                                    onBack()
+                                }
+                            )
+                        }
                     }
                 }
             )

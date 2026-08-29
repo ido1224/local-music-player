@@ -17,6 +17,15 @@ import java.util.UUID
 
 private const val TAG = "MusicRepository"
 
+/**
+ * Matches the UUID filenames importTracks assigns to copied files. A URI whose display name
+ * can't be resolved (e.g. a file:// URI, which DocumentFile.fromSingleUri doesn't handle) falls
+ * back to the URI's last path segment, which for one of our own copies is this UUID - not a
+ * name any user picked. Never let it stand in as a track title.
+ */
+private val UUID_FILENAME_REGEX =
+    Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
+
 class MusicRepository(private val context: Context) {
 
     private val trackDao = AppDatabase.getInstance(context).trackDao()
@@ -57,7 +66,9 @@ class MusicRepository(private val context: Context) {
                 Track(
                     uri = destFile.toURI().toString(),
                     title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                        ?: originalName.substringBeforeLast('.'),
+                        ?: originalName.substringBeforeLast('.')
+                            .takeUnless { UUID_FILENAME_REGEX.matches(it) }
+                        ?: "Unknown Track",
                     artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
                     album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
                     genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE),

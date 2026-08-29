@@ -14,3 +14,9 @@ local.properties
 *.dex
 *.log
 .navigation/
+
+# Release signing - never commit the key or its credentials
+/keystore.properties
+/keystore/
+*.jks
+*.keystore
