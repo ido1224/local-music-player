@@ -38,6 +38,15 @@ interface TrackDao {
     )
     fun observeAllWithFeaturesByEnergy(): Flow<List<TrackWithFeatures>>
 
+    /** One-shot (non-Flow) fetch, for batch jobs like playlist generation that don't need live updates. */
+    @Query(
+        """
+        SELECT tracks.*, track_audio_features.bpm as bpm, track_audio_features.energy as energy FROM tracks
+        LEFT JOIN track_audio_features ON tracks.id = track_audio_features.trackId
+        """
+    )
+    suspend fun getAllWithFeatures(): List<TrackWithFeatures>
+
     @Insert
     suspend fun insert(track: Track): Long
 

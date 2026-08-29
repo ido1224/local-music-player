@@ -11,4 +11,14 @@ interface ListenEventDao {
 
     @Query("SELECT COUNT(*) FROM listen_events")
     suspend fun count(): Int
+
+    /** Per-track count of "real" listens (>=80% completion), used to weight generated playlists. */
+    @Query(
+        """
+        SELECT trackId, COUNT(*) as count FROM listen_events
+        WHERE completionPercent >= 80
+        GROUP BY trackId
+        """
+    )
+    suspend fun highCompletionCountsByTrack(): List<TrackListenCount>
 }

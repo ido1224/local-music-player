@@ -68,6 +68,8 @@ dependencies {
     // Validated via an androidTest spike (see TarsosDspSpikeTest) before promoting to a real dependency.
     implementation(libs.tarsosdsp.core)
 
+    testImplementation(libs.junit)
+
     androidTestImplementation(libs.junit)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)

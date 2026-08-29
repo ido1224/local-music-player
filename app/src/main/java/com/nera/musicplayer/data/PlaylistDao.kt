@@ -41,9 +41,16 @@ interface PlaylistDao {
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     suspend fun insertPlaylistTrack(playlistTrack: PlaylistTrack)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertPlaylistTracks(playlistTracks: List<PlaylistTrack>)
+
     @Update
     suspend fun updatePlaylistTracks(tracks: List<PlaylistTrack>)
 
     @Query("DELETE FROM playlist_tracks WHERE playlistId = :playlistId AND trackId = :trackId")
     suspend fun removeTrackFromPlaylist(playlistId: Long, trackId: Long)
+
+    /** Clears all previously generated playlists before a regeneration pass; cascades to their playlist_tracks rows. */
+    @Query("DELETE FROM playlists WHERE isGenerated = 1")
+    suspend fun deleteGeneratedPlaylists()
 }

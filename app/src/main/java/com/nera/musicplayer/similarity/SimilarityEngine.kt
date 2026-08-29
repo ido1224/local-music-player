@@ -15,8 +15,12 @@ object SimilarityEngine {
     private const val BPM_WEIGHT = 0.5f
     private const val ENERGY_WEIGHT = 0.5f
 
-    /** Fraction-of-tempo distance in [0, 1], taking the best of the direct, doubled, and halved comparisons. */
-    private fun normalizedBpmDistance(bpm1: Float, bpm2: Float): Float {
+    /**
+     * Fraction-of-tempo distance in [0, 1], taking the best of the direct, doubled, and halved
+     * comparisons. Internal (not private) so [com.nera.musicplayer.similarity.ClusterEngine] can
+     * reuse the same octave-aware metric instead of duplicating it.
+     */
+    internal fun normalizedBpmDistance(bpm1: Float, bpm2: Float): Float {
         val minDiff = minOf(
             abs(bpm1 - bpm2),
             abs(bpm1 - 2f * bpm2),
@@ -27,7 +31,7 @@ object SimilarityEngine {
         return (minDiff / reference).coerceIn(0f, 1f)
     }
 
-    private fun normalizedEnergyDistance(energy1: Float, energy2: Float): Float =
+    internal fun normalizedEnergyDistance(energy1: Float, energy2: Float): Float =
         abs(energy1 - energy2).coerceIn(0f, 1f)
 
     /** 0 (identical) to 1 (maximally different), or null if either track is missing bpm/energy. */
