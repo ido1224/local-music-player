@@ -6,8 +6,18 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.withContext
 
-/** Fixed cluster count for generated playlists; "~4-5" per the design brief, pinned at the upper end. */
-private const val GENERATED_CLUSTER_COUNT = 5
+/**
+ * Cluster count scales with library size instead of a fixed constant, so a small library gets
+ * genuinely grouped playlists instead of one singleton per track (a real degenerate case found
+ * during on-device verification with only 5 tracks and a fixed k=5). One cluster per 20 tracks,
+ * clamped to [2, 5] at both ends.
+ */
+private const val MIN_GENERATED_CLUSTERS = 2
+private const val MAX_GENERATED_CLUSTERS = 5
+private const val TRACKS_PER_CLUSTER = 20
+
+private fun computeClusterCount(candidateCount: Int): Int =
+    (candidateCount / TRACKS_PER_CLUSTER).coerceIn(MIN_GENERATED_CLUSTERS, MAX_GENERATED_CLUSTERS)
 
 class PlaylistRepository(context: Context) {
 
@@ -55,15 +65,18 @@ class PlaylistRepository(context: Context) {
      * Regenerates all AI playlists from scratch: clusters the library by BPM/energy, names each
      * cluster from its centroid, and orders each cluster's tracks by 80%+ listen count (most
      * listened first) as a tiebreak-free favoring rather than arbitrary inclusion order. Manual
-     * playlists are untouched. Called on demand, not reactively.
+     * playlists are untouched. Called on demand, not reactively. [k] defaults to null, meaning
+     * "compute from the current library size" via [computeClusterCount]; callers (currently just
+     * tests, to force a specific shape) can still pass an explicit value.
      */
-    suspend fun regenerateGeneratedPlaylists(k: Int = GENERATED_CLUSTER_COUNT) = withContext(Dispatchers.IO) {
+    suspend fun regenerateGeneratedPlaylists(k: Int? = null) = withContext(Dispatchers.IO) {
         val candidates = trackDao.getAllWithFeatures().filter { it.bpm != null && it.energy != null }
         playlistDao.deleteGeneratedPlaylists()
         if (candidates.isEmpty()) return@withContext
 
+        val effectiveK = k ?: computeClusterCount(candidates.size)
         val listenCounts = listenEventDao.highCompletionCountsByTrack().associate { it.trackId to it.count }
-        val clusters = ClusterEngine.cluster(candidates, k = k)
+        val clusters = ClusterEngine.cluster(candidates, k = effectiveK)
         val now = System.currentTimeMillis()
 
         for (cluster in clusters) {

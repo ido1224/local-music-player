@@ -62,6 +62,7 @@ Working style
 * Build incrementally: get a minimal playable app (hardcoded/test file → playback works) before wiring up the full import flow.
 * After each major piece (import flow, playback, playlists), pause and summarize what changed so I can test on-device before continuing.
 * Prefer Android/Kotlin idiomatic patterns over cleverness — this codebase needs to be extended by future phases, including future AI-assisted work, so keep it readable.
+* **Flag explicitly whenever a schema change would wipe existing data vs. migrate it, rather than silently resetting.** `fallbackToDestructiveMigration()` has been fine pre-release since there was never real user data to lose, but that stops being true once real listening history exists — from 2026-08-29 onward, call out before (or immediately after, if the version bump was part of a larger change already in flight) any `AppDatabase` version bump whether it destroys data or has a real migration path, rather than burying it in a changelog paragraph.
 
 ## Status
 
@@ -224,6 +225,18 @@ Wired the same way BPM was — extended the existing pattern rather than buildin
   - **Listening-history weighting, verified directly**: since production `k=5` gives no multi-track cluster to test ordering within, forced `k=2` (via the same real `regenerateGeneratedPlaylists` call, not a separate code path) to get genuine multi-track clusters. Cluster `Calm / Fast` came out as `[Make Me Move, On & On]`. Inserted two synthetic 80%+ `ListenEvent` rows directly for On & On (the event-recording pipeline itself was already verified against real playback in the listening-tracker milestone; this only checks that the *generator* reads and applies the counts), regenerated again, and confirmed On & On moved from last to first: `[On & On, Make Me Move]`. `assertEquals` on the resulting position, not just eyeballed.
   - No crashes; full existing androidTest suite (this + the TarsosDSP spike) still green after the schema bump.
 - **Not done, deliberately, per instructions**: no UI surfaces generated playlists yet — no "Regenerate" button, no visual distinction from manual playlists in `PlaylistsScreen`. Reporting before touching any of that.
+
+### k now scales with library size instead of a fixed constant (2026-08-29, done and re-verified)
+
+The fixed `k=5` above degenerates to one singleton playlist per track once the library is small (exactly the 5-track case just verified) — real, not hypothetical, since it's the actual current library. Per instructions, replaced the fixed constant with `PlaylistRepository.computeClusterCount(candidateCount) = (candidateCount / 20).coerceIn(2, 5)` — one cluster per 20 tracks, clamped between 2 and 5 at both ends, so it degrades to genuine (if small) groupings at small sizes instead of singletons, and caps at the original ~5 for large libraries. `regenerateGeneratedPlaylists(k: Int? = null)` now computes this automatically when `k` isn't passed explicitly; tests can still force a specific `k` (used for the k=2 listening-weight test above, which no longer needs to override anything since auto-scaling now picks k=2 for this exact library size anyway — kept the parameter since forcing a shape is still occasionally useful for testing). No schema change involved in this round - pure repository logic, nothing destructive to flag.
+
+**Re-verified on-device against the real 5-track library** (same tracks/values as above): auto-computed `k = (5/20).coerceIn(2,5) = 2`, producing two genuine multi-track clusters instead of five singletons:
+- **`Calm / Fast`**: On & On (drumstep, 173.63 bpm/0.270 energy) + Make Me Move (dance pop, 190.48/0.215) — the two highest-bpm, lowest-energy tracks pairing together.
+- **`Moderate Energy / Slow`**: Firefly (prog house, 130.43/0.264) + JPB-High (trap, 150.0/0.295) + Sky High (prog house, 127.66/0.350) — the three lower-bpm, higher-energy tracks.
+
+JPB-High (trap) landing with the prog-house pair rather than On & On (drumstep) looks surprising at first glance given the earlier similarity-engine milestone's genre intuition, so checked the actual distances rather than assuming it's wrong: JPB-High→On&On = 0.0804, JPB-High→Firefly = 0.0807 — a 0.4% difference, a genuine near-tie already flagged in the similarity-engine milestone's report on these same three tracks, not a new bug. Which side of a near-tie a point lands on is legitimately sensitive to exact centroid movement during Lloyd's iterations.
+
+Listening-weight test unaffected (still passes with an explicit `k=2` override, matching what auto-scaling now produces anyway by default). Full androidTest suite (6 tests: this file + the TarsosDSP spike) green; no crashes.
 
 ## Git (2026-08-29)
 
