@@ -261,6 +261,7 @@ Addressed the limitation flagged directly above, per instructions.
   - Back on the Playlists list, `Calm / Fast` correctly showed with **no** AI badge.
   - Tapped Regenerate. DB pull afterward: **id 37 (promoted `Calm / Fast`) is completely untouched** - same id, same `dateCreated`, same track rows - while `Moderate Energy / Slow` was deleted and recreated as a new id with a fresh timestamp, refreshing normally. The current library also still clusters into a `Calm / Fast`-named group, so a **second, independent** AI-tagged `Calm / Fast` playlist was created alongside the promoted manual one - two playlists can legitimately share a name now (one manual, one AI), which is expected and harmless since they're just separate rows with no uniqueness constraint on `name`, not a bug.
   - No crashes.
+- **Known, low-priority, not fixed**: a promoted playlist's auto-generated name (e.g. `Calm / Fast`) can collide with a freshly regenerated AI playlist that clusters to the same name later, so the list can show two identically-named playlists distinguished only by the AI badge. Left as-is per instructions - purely cosmetic (no id/data collision, both playlists function normally), and not worth solving speculatively before seeing whether it's actually confusing once the real library (not just these 5 test tracks) is imported. Revisit then if it turns out to matter - options include suffixing a promoted playlist's name at promotion time, or excluding names already in use by a manual playlist when naming new clusters.
 
 ## Git (2026-08-29)
 
