@@ -144,12 +144,12 @@ fun PlaylistsScreen(
 private fun AiBadge() {
     Surface(
         shape = RoundedCornerShape(4.dp),
-        color = MaterialTheme.colorScheme.secondaryContainer
+        color = MaterialTheme.colorScheme.primaryContainer
     ) {
         Text(
             text = "AI",
             style = MaterialTheme.typography.labelSmall,
-            color = MaterialTheme.colorScheme.onSecondaryContainer,
+            color = MaterialTheme.colorScheme.onPrimaryContainer,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         )
     }

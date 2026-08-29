@@ -21,6 +21,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -33,8 +34,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.nera.musicplayer.R
 import com.nera.musicplayer.data.LibrarySortOrder
 import com.nera.musicplayer.data.Track
 import kotlin.math.roundToInt
@@ -58,7 +61,7 @@ fun HomeScreen(
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("NERA Music Player") },
+                title = { Text(stringResource(R.string.app_name)) },
                 actions = {
                     TextButton(onClick = {
                         libraryViewModel.setSortOrder(
@@ -166,8 +169,20 @@ private fun TrackRow(
             trailingContent = if (bpm != null || energy != null) {
                 {
                     Column(horizontalAlignment = Alignment.End) {
-                        if (bpm != null) Text("BPM: ${bpm.roundToInt()}")
-                        if (energy != null) Text("Energy: ${"%.2f".format(energy)}")
+                        if (bpm != null) {
+                            Text(
+                                "BPM: ${bpm.roundToInt()}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        }
+                        if (energy != null) {
+                            Text(
+                                "Energy: ${"%.2f".format(energy)}",
+                                style = MaterialTheme.typography.labelMedium,
+                                color = MaterialTheme.colorScheme.tertiary
+                            )
+                        }
                     }
                 }
             } else null,
