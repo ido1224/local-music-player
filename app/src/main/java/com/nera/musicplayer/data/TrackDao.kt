@@ -1,0 +1,46 @@
+package com.nera.musicplayer.data
+
+import androidx.room.Dao
+import androidx.room.Delete
+import androidx.room.Insert
+import androidx.room.Query
+import kotlinx.coroutines.flow.Flow
+
+@Dao
+interface TrackDao {
+    @Query("SELECT * FROM tracks ORDER BY dateAdded DESC")
+    fun observeAll(): Flow<List<Track>>
+
+    @Query(
+        """
+        SELECT tracks.*, track_audio_features.bpm as bpm, track_audio_features.energy as energy FROM tracks
+        LEFT JOIN track_audio_features ON tracks.id = track_audio_features.trackId
+        ORDER BY tracks.dateAdded DESC
+        """
+    )
+    fun observeAllWithFeaturesByDateAdded(): Flow<List<TrackWithFeatures>>
+
+    @Query(
+        """
+        SELECT tracks.*, track_audio_features.bpm as bpm, track_audio_features.energy as energy FROM tracks
+        LEFT JOIN track_audio_features ON tracks.id = track_audio_features.trackId
+        ORDER BY track_audio_features.bpm IS NULL, track_audio_features.bpm ASC
+        """
+    )
+    fun observeAllWithFeaturesByTempo(): Flow<List<TrackWithFeatures>>
+
+    @Query(
+        """
+        SELECT tracks.*, track_audio_features.bpm as bpm, track_audio_features.energy as energy FROM tracks
+        LEFT JOIN track_audio_features ON tracks.id = track_audio_features.trackId
+        ORDER BY track_audio_features.energy IS NULL, track_audio_features.energy ASC
+        """
+    )
+    fun observeAllWithFeaturesByEnergy(): Flow<List<TrackWithFeatures>>
+
+    @Insert
+    suspend fun insert(track: Track): Long
+
+    @Delete
+    suspend fun delete(track: Track)
+}
