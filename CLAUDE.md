@@ -250,6 +250,18 @@ Listening-weight test unaffected (still passes with an explicit `k=2` override, 
   - No crashes.
 - **Known, accepted limitation, not fixed this round**: nothing stops a user from renaming/adding/removing tracks on an AI-generated playlist through the normal detail screen, and a subsequent Regenerate will silently blow those edits away (regeneration deletes and recreates every `isGenerated=1` row unconditionally). Not addressed now since it wasn't asked for; worth a "convert to manual" or "protect from regeneration" affordance later if it turns out to matter in practice.
 
+### "Promote to manual" action (2026-08-29, done and verified — no schema change)
+
+Addressed the limitation flagged directly above, per instructions.
+
+- **`PlaylistDao.promoteToManual(playlistId)`**: a single-column `UPDATE playlists SET isGenerated = 0 WHERE id = :playlistId` — no need to round-trip the whole row through `@Update`. `PlaylistRepository.promoteToManual(playlist)` wraps it; `PlaylistViewModel.promoteSelectedPlaylistToManual()` calls it and updates the local `_selectedPlaylist` state with `.copy(isGenerated = false)` so the UI reflects it immediately without waiting on the `Flow` to re-emit.
+- **UI**: a "Promote to manual" `TextButton` in `PlaylistDetailScreen`'s top bar, shown only when `playlist?.isGenerated == true` (same conditional-visibility idiom as the "More like this" menu item on tracks missing bpm/energy — hide the action entirely rather than show-and-disable it). Placed in the same top bar as Rename/Delete per the request, since those aren't in a dropdown menu in this screen to begin with.
+- **Verified on-device** against the real library (`Calm / Fast` id 37, `Moderate Energy / Slow` id 36, `My Mix` id 35 manual):
+  - Opened `Calm / Fast`, tapped Promote to manual. Confirmed via DB pull that id 37 flipped to `isGenerated = 0` with its two tracks (`On & On`, `Make Me Move`) and their order completely unchanged. The action button itself disappeared from the top bar immediately (only "Rename" remained) - confirms the local state update, not just the DB write.
+  - Back on the Playlists list, `Calm / Fast` correctly showed with **no** AI badge.
+  - Tapped Regenerate. DB pull afterward: **id 37 (promoted `Calm / Fast`) is completely untouched** - same id, same `dateCreated`, same track rows - while `Moderate Energy / Slow` was deleted and recreated as a new id with a fresh timestamp, refreshing normally. The current library also still clusters into a `Calm / Fast`-named group, so a **second, independent** AI-tagged `Calm / Fast` playlist was created alongside the promoted manual one - two playlists can legitimately share a name now (one manual, one AI), which is expected and harmless since they're just separate rows with no uniqueness constraint on `name`, not a bug.
+  - No crashes.
+
 ## Git (2026-08-29)
 
 Project is now under its own git repo at `C:\Users\Ido124\AndroidStudioProjects\local-music-player\.git` (previously the only git repo touching this code was the user's entire home directory, uncommitted — no real version control). `.gitignore` extended beyond the Android Studio default to actually anchor correctly (`/build` → `build/`, so `app/build/` is now covered too) plus `.kotlin/`, `*.apk`, `*.log`. Initial commit made with the full project as of the energy-in-UI milestone (source, Gradle wrapper, `CLAUDE.md`, the `androidTest` WAV fixtures) — build outputs, `.gradle/`, `.idea/`, `.kotlin/`, and `local.properties` correctly excluded from the commit.

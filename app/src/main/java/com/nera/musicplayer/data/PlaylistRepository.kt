@@ -43,6 +43,10 @@ class PlaylistRepository(context: Context) {
         playlistDao.delete(playlist)
     }
 
+    suspend fun promoteToManual(playlist: Playlist) {
+        playlistDao.promoteToManual(playlist.id)
+    }
+
     suspend fun addTrackToPlaylist(playlistId: Long, trackId: Long) {
         val position = playlistDao.countTracksInPlaylist(playlistId)
         playlistDao.insertPlaylistTrack(PlaylistTrack(playlistId, trackId, position))

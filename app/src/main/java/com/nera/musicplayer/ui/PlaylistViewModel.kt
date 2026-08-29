@@ -60,6 +60,15 @@ class PlaylistViewModel(application: Application) : AndroidViewModel(application
         }
     }
 
+    /** Detaches the selected playlist from future Regenerate cycles; it becomes a normal manual playlist from here on. */
+    fun promoteSelectedPlaylistToManual() {
+        val playlist = _selectedPlaylist.value ?: return
+        viewModelScope.launch {
+            repository.promoteToManual(playlist)
+            _selectedPlaylist.value = playlist.copy(isGenerated = false)
+        }
+    }
+
     fun addTrackToSelectedPlaylist(trackId: Long) {
         val playlistId = _selectedPlaylist.value?.id ?: return
         viewModelScope.launch { repository.addTrackToPlaylist(playlistId, trackId) }

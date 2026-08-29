@@ -53,4 +53,8 @@ interface PlaylistDao {
     /** Clears all previously generated playlists before a regeneration pass; cascades to their playlist_tracks rows. */
     @Query("DELETE FROM playlists WHERE isGenerated = 1")
     suspend fun deleteGeneratedPlaylists()
+
+    /** Permanently detaches a generated playlist from future Regenerate cycles; tracks/order are left exactly as-is. */
+    @Query("UPDATE playlists SET isGenerated = 0 WHERE id = :playlistId")
+    suspend fun promoteToManual(playlistId: Long)
 }

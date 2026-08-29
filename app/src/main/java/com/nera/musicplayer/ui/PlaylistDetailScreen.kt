@@ -55,6 +55,11 @@ fun PlaylistDetailScreen(
                 title = { Text(playlist?.name ?: "Playlist") },
                 navigationIcon = { TextButton(onClick = onBack) { Text("Back") } },
                 actions = {
+                    if (playlist?.isGenerated == true) {
+                        TextButton(onClick = { playlistViewModel.promoteSelectedPlaylistToManual() }) {
+                            Text("Promote to manual")
+                        }
+                    }
                     TextButton(onClick = { showRenameDialog = true }) { Text("Rename") }
                     TextButton(onClick = {
                         playlist?.let { playlistViewModel.deletePlaylist(it) }
