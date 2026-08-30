@@ -37,6 +37,7 @@ class MusicRepository(private val context: Context) {
         LibrarySortOrder.DATE_ADDED -> trackDao.observeAllWithFeaturesByDateAdded()
         LibrarySortOrder.BPM -> trackDao.observeAllWithFeaturesByTempo()
         LibrarySortOrder.ENERGY -> trackDao.observeAllWithFeaturesByEnergy()
+        LibrarySortOrder.BY_NAME -> trackDao.observeAllWithFeaturesByTitle()
     }
 
     /**

@@ -13,6 +13,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -28,15 +29,36 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _sortOrder = MutableStateFlow(LibrarySortOrder.DATE_ADDED)
     val sortOrder: StateFlow<LibrarySortOrder> = _sortOrder
 
-    val tracksWithFeatures: StateFlow<List<TrackWithFeatures>> = _sortOrder
-        .flatMapLatest { order -> repository.observeTracksWithFeatures(order) }
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+    private val _searchQuery = MutableStateFlow("")
+    val searchQuery: StateFlow<String> = _searchQuery
+
+    private val sortedTracks = _sortOrder.flatMapLatest { order -> repository.observeTracksWithFeatures(order) }
+
+    /**
+     * Search filters the already-sorted list in memory rather than round-tripping through Room
+     * per keystroke - a title/artist substring match over a few hundred tracks is well under a
+     * frame budget, so this stays snappy without needing a debounce or a DB-level LIKE query.
+     */
+    val tracksWithFeatures: StateFlow<List<TrackWithFeatures>> = combine(sortedTracks, _searchQuery) { list, query ->
+        if (query.isBlank()) {
+            list
+        } else {
+            list.filter { item ->
+                item.track.title.contains(query, ignoreCase = true) ||
+                    item.track.artist?.contains(query, ignoreCase = true) == true
+            }
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting
 
     fun setSortOrder(order: LibrarySortOrder) {
         _sortOrder.value = order
+    }
+
+    fun setSearchQuery(query: String) {
+        _searchQuery.value = query
     }
 
     fun importTracks(uris: List<Uri>) {

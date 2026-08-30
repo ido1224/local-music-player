@@ -13,6 +13,9 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -22,6 +25,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,12 +51,16 @@ import kotlin.math.roundToInt
 fun HomeScreen(
     playerViewModel: PlayerViewModel = viewModel(),
     libraryViewModel: LibraryViewModel = viewModel(),
-    onOpenPlaylists: () -> Unit = {}
+    onOpenPlaylists: () -> Unit = {},
+    onOpenSettings: () -> Unit = {}
 ) {
     val playerState by playerViewModel.uiState.collectAsState()
     val tracks by libraryViewModel.tracksWithFeatures.collectAsState()
+    val allTracks by libraryViewModel.tracks.collectAsState()
     val sortOrder by libraryViewModel.sortOrder.collectAsState()
+    val searchQuery by libraryViewModel.searchQuery.collectAsState()
     val isImporting by libraryViewModel.isImporting.collectAsState()
+    var showOverflowMenu by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
@@ -68,7 +76,8 @@ fun HomeScreen(
                             when (sortOrder) {
                                 LibrarySortOrder.DATE_ADDED -> LibrarySortOrder.BPM
                                 LibrarySortOrder.BPM -> LibrarySortOrder.ENERGY
-                                LibrarySortOrder.ENERGY -> LibrarySortOrder.DATE_ADDED
+                                LibrarySortOrder.ENERGY -> LibrarySortOrder.BY_NAME
+                                LibrarySortOrder.BY_NAME -> LibrarySortOrder.DATE_ADDED
                             }
                         )
                     }) {
@@ -77,14 +86,33 @@ fun HomeScreen(
                                 LibrarySortOrder.DATE_ADDED -> "Sort: Date"
                                 LibrarySortOrder.BPM -> "Sort: BPM"
                                 LibrarySortOrder.ENERGY -> "Sort: Energy"
+                                LibrarySortOrder.BY_NAME -> "Sort: Name"
                             }
                         )
                     }
-                    TextButton(onClick = onOpenPlaylists) {
-                        Text("Playlists")
-                    }
                     IconButton(onClick = { importLauncher.launch(arrayOf("audio/*")) }) {
                         Icon(Icons.Default.Add, contentDescription = "Import audio files")
+                    }
+                    Box {
+                        IconButton(onClick = { showOverflowMenu = true }) {
+                            Icon(Icons.Default.MoreVert, contentDescription = "More options")
+                        }
+                        DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Playlists") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenPlaylists()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Settings") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    onOpenSettings()
+                                }
+                            )
+                        }
                     }
                 }
             )
@@ -111,12 +139,36 @@ fun HomeScreen(
                 .fillMaxSize()
         ) {
             Column(modifier = Modifier.fillMaxSize()) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = { libraryViewModel.setSearchQuery(it) },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                    placeholder = { Text("Search by title or artist") },
+                    leadingIcon = { Icon(Icons.Default.Search, contentDescription = null) },
+                    trailingIcon = {
+                        if (searchQuery.isNotEmpty()) {
+                            IconButton(onClick = { libraryViewModel.setSearchQuery("") }) {
+                                Icon(Icons.Default.Close, contentDescription = "Clear search")
+                            }
+                        }
+                    },
+                    singleLine = true
+                )
                 if (isImporting) {
                     LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
                 }
-                if (tracks.isEmpty()) {
+                if (allTracks.isEmpty()) {
                     Text(
                         text = "No tracks yet. Tap + to import audio files.",
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(24.dp)
+                    )
+                } else if (tracks.isEmpty()) {
+                    Text(
+                        text = "No tracks match \"$searchQuery\".",
                         modifier = Modifier
                             .fillMaxSize()
                             .padding(24.dp)

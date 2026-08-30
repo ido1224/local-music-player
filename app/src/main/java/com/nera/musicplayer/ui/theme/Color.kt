@@ -21,3 +21,11 @@ val NeraMagentaContainerLight = Color(0xFFFFD3EA)
 val NeraDarkBackground = Color(0xFF0E0A14)
 val NeraDarkSurface = Color(0xFF15101E)
 val NeraDarkSurfaceVariant = Color(0xFF241C33)
+
+// Light base: deliberately low-contrast - soft lavender-white surfaces and a dark plum-gray for
+// text/icons instead of the stark white/pure-black a default Material light scheme would use.
+val NeraLightBackground = Color(0xFFF3EEFA)
+val NeraLightSurface = Color(0xFFF9F5FD)
+val NeraLightSurfaceVariant = Color(0xFFE7DEF2)
+val NeraLightOnSurface = Color(0xFF3A3346)
+val NeraLightOnSurfaceVariant = Color(0xFF5B5268)

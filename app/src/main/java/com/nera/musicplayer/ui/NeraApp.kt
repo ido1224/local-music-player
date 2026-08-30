@@ -11,13 +11,15 @@ private sealed class Screen {
     data object Home : Screen()
     data object Playlists : Screen()
     data object PlaylistDetail : Screen()
+    data object Settings : Screen()
 }
 
 @Composable
 fun NeraApp(
     playerViewModel: PlayerViewModel = viewModel(),
     libraryViewModel: LibraryViewModel = viewModel(),
-    playlistViewModel: PlaylistViewModel = viewModel()
+    playlistViewModel: PlaylistViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel()
 ) {
     var screen by remember { mutableStateOf<Screen>(Screen.Home) }
 
@@ -25,7 +27,8 @@ fun NeraApp(
         Screen.Home -> HomeScreen(
             playerViewModel = playerViewModel,
             libraryViewModel = libraryViewModel,
-            onOpenPlaylists = { screen = Screen.Playlists }
+            onOpenPlaylists = { screen = Screen.Playlists },
+            onOpenSettings = { screen = Screen.Settings }
         )
 
         Screen.Playlists -> PlaylistsScreen(
@@ -42,6 +45,11 @@ fun NeraApp(
             libraryViewModel = libraryViewModel,
             playlistViewModel = playlistViewModel,
             onBack = { screen = Screen.Playlists }
+        )
+
+        Screen.Settings -> SettingsScreen(
+            settingsViewModel = settingsViewModel,
+            onBack = { screen = Screen.Home }
         )
     }
 }

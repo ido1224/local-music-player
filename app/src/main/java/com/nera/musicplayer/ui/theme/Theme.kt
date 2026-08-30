@@ -44,7 +44,13 @@ private val NeraLightColors = lightColorScheme(
     tertiary = Color(0xFFC2007E),
     onTertiary = Color.White,
     tertiaryContainer = NeraMagentaContainerLight,
-    onTertiaryContainer = Color(0xFF5C0035)
+    onTertiaryContainer = Color(0xFF5C0035),
+    background = NeraLightBackground,
+    onBackground = NeraLightOnSurface,
+    surface = NeraLightSurface,
+    onSurface = NeraLightOnSurface,
+    surfaceVariant = NeraLightSurfaceVariant,
+    onSurfaceVariant = NeraLightOnSurfaceVariant
 )
 
 /**
