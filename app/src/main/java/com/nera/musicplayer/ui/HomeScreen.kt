@@ -51,6 +51,7 @@ import kotlin.math.roundToInt
 fun HomeScreen(
     playerViewModel: PlayerViewModel = viewModel(),
     libraryViewModel: LibraryViewModel = viewModel(),
+    settingsViewModel: SettingsViewModel = viewModel(),
     onOpenPlaylists: () -> Unit = {},
     onOpenSettings: () -> Unit = {}
 ) {
@@ -60,6 +61,7 @@ fun HomeScreen(
     val sortOrder by libraryViewModel.sortOrder.collectAsState()
     val searchQuery by libraryViewModel.searchQuery.collectAsState()
     val isImporting by libraryViewModel.isImporting.collectAsState()
+    val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
     var showOverflowMenu by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(
@@ -180,6 +182,7 @@ fun HomeScreen(
                                 track = item.track,
                                 bpm = item.bpm,
                                 energy = item.energy,
+                                showBadges = showAnalysisBadges,
                                 onClick = { playerViewModel.playQueue(tracks.map { it.track }, index) },
                                 onRemoveFromLibrary = { libraryViewModel.removeFromLibrary(item.track) },
                                 onDeleteFile = { libraryViewModel.deleteTrackFile(item.track) },
@@ -205,6 +208,7 @@ private fun TrackRow(
     track: Track,
     bpm: Float?,
     energy: Float?,
+    showBadges: Boolean,
     onClick: () -> Unit,
     onRemoveFromLibrary: () -> Unit,
     onDeleteFile: () -> Unit,
@@ -218,7 +222,7 @@ private fun TrackRow(
         ListItem(
             headlineContent = { Text(track.title) },
             supportingContent = { if (subtitle.isNotEmpty()) Text(subtitle) },
-            trailingContent = if (bpm != null || energy != null) {
+            trailingContent = if (showBadges && (bpm != null || energy != null)) {
                 {
                     Column(horizontalAlignment = Alignment.End) {
                         if (bpm != null) {

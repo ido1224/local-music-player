@@ -27,6 +27,7 @@ fun NeraApp(
         Screen.Home -> HomeScreen(
             playerViewModel = playerViewModel,
             libraryViewModel = libraryViewModel,
+            settingsViewModel = settingsViewModel,
             onOpenPlaylists = { screen = Screen.Playlists },
             onOpenSettings = { screen = Screen.Settings }
         )

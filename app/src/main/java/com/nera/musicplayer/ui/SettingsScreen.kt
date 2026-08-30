@@ -1,5 +1,6 @@
 package com.nera.musicplayer.ui
 
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -8,11 +9,13 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
@@ -30,6 +33,7 @@ fun SettingsScreen(
     onBack: () -> Unit
 ) {
     val currentTheme by settingsViewModel.theme.collectAsState()
+    val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
 
     Scaffold(
         topBar = {
@@ -55,6 +59,21 @@ fun SettingsScreen(
                 selected = currentTheme == AppTheme.LIGHT,
                 onClick = { settingsViewModel.setTheme(AppTheme.LIGHT) }
             )
+
+            HorizontalDivider(modifier = Modifier.padding(vertical = 16.dp))
+
+            Text("Library", style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Show track analysis badges")
+                Switch(
+                    checked = showAnalysisBadges,
+                    onCheckedChange = { settingsViewModel.setShowAnalysisBadges(it) }
+                )
+            }
         }
     }
 }

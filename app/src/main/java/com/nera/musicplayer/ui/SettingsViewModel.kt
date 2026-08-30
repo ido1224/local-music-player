@@ -9,10 +9,16 @@ import kotlinx.coroutines.flow.StateFlow
 class SettingsViewModel(application: Application) : AndroidViewModel(application) {
 
     private val themePreferences = ThemePreferences(application)
+    private val libraryDisplayPreferences = LibraryDisplayPreferences(application)
 
     val theme: StateFlow<AppTheme> = themePreferences.theme
+    val showAnalysisBadges: StateFlow<Boolean> = libraryDisplayPreferences.showAnalysisBadges
 
     fun setTheme(theme: AppTheme) {
         themePreferences.setTheme(theme)
+    }
+
+    fun setShowAnalysisBadges(show: Boolean) {
+        libraryDisplayPreferences.setShowAnalysisBadges(show)
     }
 }
