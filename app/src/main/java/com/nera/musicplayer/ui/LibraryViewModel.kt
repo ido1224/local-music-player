@@ -4,6 +4,7 @@ import android.app.Application
 import android.net.Uri
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.nera.musicplayer.data.ImportSummary
 import com.nera.musicplayer.data.LibrarySortOrder
 import com.nera.musicplayer.data.MusicRepository
 import com.nera.musicplayer.data.Track
@@ -53,6 +54,13 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val _isImporting = MutableStateFlow(false)
     val isImporting: StateFlow<Boolean> = _isImporting
 
+    /** (current, total) while a folder scan/import is running; null otherwise. */
+    private val _importProgress = MutableStateFlow<Pair<Int, Int>?>(null)
+    val importProgress: StateFlow<Pair<Int, Int>?> = _importProgress
+
+    private val _lastImportSummary = MutableStateFlow<ImportSummary?>(null)
+    val lastImportSummary: StateFlow<ImportSummary?> = _lastImportSummary
+
     fun setSortOrder(order: LibrarySortOrder) {
         _sortOrder.value = order
     }
@@ -71,6 +79,27 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 _isImporting.value = false
             }
         }
+    }
+
+    /** Recursively imports every audio file found under [treeUri], skipping title+artist duplicates. */
+    fun importFolder(treeUri: Uri) {
+        viewModelScope.launch {
+            _isImporting.value = true
+            _importProgress.value = 0 to 0
+            try {
+                val summary = repository.importFromTree(treeUri) { current, total ->
+                    _importProgress.value = current to total
+                }
+                _lastImportSummary.value = summary
+            } finally {
+                _isImporting.value = false
+                _importProgress.value = null
+            }
+        }
+    }
+
+    fun clearImportSummary() {
+        _lastImportSummary.value = null
     }
 
     fun removeFromLibrary(track: Track) {

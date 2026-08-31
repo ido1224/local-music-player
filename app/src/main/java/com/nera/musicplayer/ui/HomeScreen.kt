@@ -61,12 +61,18 @@ fun HomeScreen(
     val sortOrder by libraryViewModel.sortOrder.collectAsState()
     val searchQuery by libraryViewModel.searchQuery.collectAsState()
     val isImporting by libraryViewModel.isImporting.collectAsState()
+    val importProgress by libraryViewModel.importProgress.collectAsState()
+    val lastImportSummary by libraryViewModel.lastImportSummary.collectAsState()
     val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
     var showOverflowMenu by remember { mutableStateOf(false) }
 
     val importLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenMultipleDocuments()
     ) { uris -> libraryViewModel.importTracks(uris) }
+
+    val importFolderLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocumentTree()
+    ) { treeUri -> treeUri?.let { libraryViewModel.importFolder(it) } }
 
     Scaffold(
         topBar = {
@@ -100,6 +106,13 @@ fun HomeScreen(
                             Icon(Icons.Default.MoreVert, contentDescription = "More options")
                         }
                         DropdownMenu(expanded = showOverflowMenu, onDismissRequest = { showOverflowMenu = false }) {
+                            DropdownMenuItem(
+                                text = { Text("Import folder") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    importFolderLauncher.launch(null)
+                                }
+                            )
                             DropdownMenuItem(
                                 text = { Text("Playlists") },
                                 onClick = {
@@ -159,7 +172,19 @@ fun HomeScreen(
                     singleLine = true
                 )
                 if (isImporting) {
-                    LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    val progress = importProgress
+                    if (progress != null && progress.second > 0) {
+                        val (current, total) = progress
+                        Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp)) {
+                            Text("Importing $current / $total…", style = MaterialTheme.typography.labelSmall)
+                            LinearProgressIndicator(
+                                progress = { current.toFloat() / total },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
+                    } else {
+                        LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    }
                 }
                 if (allTracks.isEmpty()) {
                     Text(
@@ -199,6 +224,23 @@ fun HomeScreen(
                 }
             }
         }
+    }
+
+    if (lastImportSummary != null) {
+        val summary = lastImportSummary!!
+        AlertDialog(
+            onDismissRequest = { libraryViewModel.clearImportSummary() },
+            title = { Text("Import complete") },
+            text = {
+                Text(
+                    "Imported ${summary.imported} track" + (if (summary.imported == 1) "" else "s") +
+                        ". Skipped ${summary.skippedDuplicates} duplicate" + (if (summary.skippedDuplicates == 1) "" else "s") + "."
+                )
+            },
+            confirmButton = {
+                TextButton(onClick = { libraryViewModel.clearImportSummary() }) { Text("OK") }
+            }
+        )
     }
 }
 

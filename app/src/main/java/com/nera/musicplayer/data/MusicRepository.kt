@@ -26,6 +26,8 @@ private const val TAG = "MusicRepository"
 private val UUID_FILENAME_REGEX =
     Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
+private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "m4a", "flac", "ogg", "aac", "wma")
+
 class MusicRepository(private val context: Context) {
 
     private val trackDao = AppDatabase.getInstance(context).trackDao()
@@ -45,49 +47,110 @@ class MusicRepository(private val context: Context) {
      * app-managed storage, not a reference to the original external file)
      * and reads its ID3 tags before inserting it into the library.
      */
-    suspend fun importTracks(uris: List<Uri>) = withContext(Dispatchers.IO) {
-        val musicDir = File(context.filesDir, "music").apply { mkdirs() }
-
+    suspend fun importTracks(uris: List<Uri>): ImportSummary = withContext(Dispatchers.IO) {
+        val existingKeys = trackDao.getAllTitleArtists().mapTo(mutableSetOf()) { it.dedupeKey() }
+        var imported = 0
+        var skipped = 0
         for (sourceUri in uris) {
             val originalName = DocumentFile.fromSingleUri(context, sourceUri)?.name
                 ?: sourceUri.lastPathSegment
-                ?: "track"
-            val extension = originalName.substringAfterLast('.', "mp3")
-            val destFile = File(musicDir, "${UUID.randomUUID()}.$extension")
+            if (importOne(sourceUri, originalName, existingKeys)) imported++ else skipped++
+        }
+        ImportSummary(imported, skipped)
+    }
 
-            val copied = context.contentResolver.openInputStream(sourceUri)?.use { input ->
-                destFile.outputStream().use { output -> input.copyTo(output) }
-                true
-            } ?: false
-            if (!copied) continue
+    /**
+     * Recursively scans [treeUri] (picked via SAF's OpenDocumentTree) for audio files in any
+     * subfolder and imports everything found in one pass - e.g. a MusicBrainz Picard-style
+     * Artist/Album/Track.mp3 tree. [onProgress] fires after each file (current, total) so the
+     * caller can drive a determinate progress indicator across what can be 100+ files.
+     */
+    suspend fun importFromTree(treeUri: Uri, onProgress: (Int, Int) -> Unit): ImportSummary = withContext(Dispatchers.IO) {
+        val root = DocumentFile.fromTreeUri(context, treeUri)
+        val audioFiles = mutableListOf<DocumentFile>()
+        if (root != null) collectAudioFiles(root, audioFiles)
 
-            val retriever = MediaMetadataRetriever()
-            val track = try {
-                retriever.setDataSource(destFile.absolutePath)
-                Track(
-                    uri = destFile.toURI().toString(),
-                    title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
-                        ?: originalName.substringBeforeLast('.')
-                            .takeUnless { UUID_FILENAME_REGEX.matches(it) }
-                        ?: "Unknown Track",
-                    artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
-                    album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
-                    genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE),
-                    year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
-                        ?.take(4)?.toIntOrNull(),
-                    durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
-                        ?.toLongOrNull() ?: 0L,
-                    dateAdded = System.currentTimeMillis(),
-                    fileSizeBytes = destFile.length()
-                )
-            } finally {
-                retriever.release()
+        val existingKeys = trackDao.getAllTitleArtists().mapTo(mutableSetOf()) { it.dedupeKey() }
+        var imported = 0
+        var skipped = 0
+        audioFiles.forEachIndexed { index, file ->
+            if (importOne(file.uri, file.name, existingKeys)) imported++ else skipped++
+            onProgress(index + 1, audioFiles.size)
+        }
+        ImportSummary(imported, skipped)
+    }
+
+    private fun collectAudioFiles(dir: DocumentFile, out: MutableList<DocumentFile>) {
+        for (child in dir.listFiles()) {
+            when {
+                child.isDirectory -> collectAudioFiles(child, out)
+                child.isFile && isAudioFile(child) -> out.add(child)
             }
-
-            val trackId = trackDao.insert(track)
-            analyzeAudio(trackId, destFile)
         }
     }
+
+    private fun isAudioFile(file: DocumentFile): Boolean {
+        if (file.type?.startsWith("audio/") == true) return true
+        val extension = file.name?.substringAfterLast('.', "")?.lowercase() ?: return false
+        return extension in AUDIO_EXTENSIONS
+    }
+
+    /**
+     * Copies [sourceUri] into app storage, reads its tags, and inserts it - unless a track with
+     * the same title+artist is already in [existingKeys] (checked case-insensitively), in which
+     * case the copy is discarded and this returns false. Title+artist rather than a file hash:
+     * it catches the case that actually annoys a user (the same song appearing twice, however it
+     * got re-encoded/re-tagged/re-named along the way), which a byte-exact hash would miss.
+     */
+    private suspend fun importOne(sourceUri: Uri, originalName: String?, existingKeys: MutableSet<String>): Boolean {
+        val musicDir = File(context.filesDir, "music").apply { mkdirs() }
+        val name = originalName ?: "track"
+        val extension = name.substringAfterLast('.', "mp3")
+        val destFile = File(musicDir, "${UUID.randomUUID()}.$extension")
+
+        val copied = context.contentResolver.openInputStream(sourceUri)?.use { input ->
+            destFile.outputStream().use { output -> input.copyTo(output) }
+            true
+        } ?: false
+        if (!copied) return false
+
+        val retriever = MediaMetadataRetriever()
+        val track = try {
+            retriever.setDataSource(destFile.absolutePath)
+            Track(
+                uri = destFile.toURI().toString(),
+                title = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_TITLE)
+                    ?: name.substringBeforeLast('.')
+                        .takeUnless { UUID_FILENAME_REGEX.matches(it) }
+                    ?: "Unknown Track",
+                artist = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ARTIST),
+                album = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_ALBUM),
+                genre = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_GENRE),
+                year = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_YEAR)
+                    ?.take(4)?.toIntOrNull(),
+                durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                    ?.toLongOrNull() ?: 0L,
+                dateAdded = System.currentTimeMillis(),
+                fileSizeBytes = destFile.length()
+            )
+        } finally {
+            retriever.release()
+        }
+
+        val key = TrackTitleArtist(track.title, track.artist).dedupeKey()
+        if (key in existingKeys) {
+            destFile.delete()
+            return false
+        }
+        existingKeys.add(key)
+
+        val trackId = trackDao.insert(track)
+        analyzeAudio(trackId, destFile)
+        return true
+    }
+
+    private fun TrackTitleArtist.dedupeKey(): String =
+        "${title.trim().lowercase()}|${artist?.trim()?.lowercase().orEmpty()}"
 
     /**
      * Runs once per track at import time (not per-play) and caches the result -

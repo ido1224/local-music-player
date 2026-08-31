@@ -56,6 +56,10 @@ interface TrackDao {
     )
     suspend fun getAllWithFeatures(): List<TrackWithFeatures>
 
+    /** For duplicate detection during import - cheap projection, no need to load full Track rows. */
+    @Query("SELECT title, artist FROM tracks")
+    suspend fun getAllTitleArtists(): List<TrackTitleArtist>
+
     @Insert
     suspend fun insert(track: Track): Long
 
