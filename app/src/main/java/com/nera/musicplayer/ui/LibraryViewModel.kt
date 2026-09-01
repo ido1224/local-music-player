@@ -98,6 +98,31 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         }
     }
 
+    /**
+     * Scans the NeraMusicImport drop folder (see MusicRepository.scanImportFolder) - the
+     * no-picker-needed bypass for devices whose SAF folder picker has no working confirm action.
+     * [showEmptyResult] suppresses the summary dialog for the automatic on-launch scan (an empty
+     * drop folder is the common case and shouldn't nag the user every startup), but a manually
+     * triggered "Rescan library" tap always reports back, even a 0/0 result.
+     */
+    fun rescanLibrary(showEmptyResult: Boolean = true) {
+        viewModelScope.launch {
+            _isImporting.value = true
+            _importProgress.value = 0 to 0
+            try {
+                val summary = repository.scanImportFolder { current, total ->
+                    _importProgress.value = current to total
+                }
+                if (showEmptyResult || summary.imported > 0 || summary.skippedDuplicates > 0) {
+                    _lastImportSummary.value = summary
+                }
+            } finally {
+                _isImporting.value = false
+                _importProgress.value = null
+            }
+        }
+    }
+
     fun clearImportSummary() {
         _lastImportSummary.value = null
     }

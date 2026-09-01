@@ -3,6 +3,7 @@ package com.nera.musicplayer.data
 import android.content.Context
 import android.media.MediaMetadataRetriever
 import android.net.Uri
+import android.os.Environment
 import android.util.Log
 import androidx.documentfile.provider.DocumentFile
 import com.nera.musicplayer.analysis.AudioDecoder
@@ -27,6 +28,9 @@ private val UUID_FILENAME_REGEX =
     Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
 private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "m4a", "flac", "ogg", "aac", "wma")
+
+private const val STAGING_PREFS_NAME = "nera_import_staging"
+private const val KEY_PROCESSED_STAGING_FILES = "processed_files"
 
 class MusicRepository(private val context: Context) {
 
@@ -94,6 +98,73 @@ class MusicRepository(private val context: Context) {
         val extension = file.name?.substringAfterLast('.', "")?.lowercase() ?: return false
         return extension in AUDIO_EXTENSIONS
     }
+
+    /**
+     * A plain top-level folder rather than app-private external storage: on some OEM ROMs (seen
+     * on-device) `adb push` can't create directories under Android/data/<pkg>/ even though the
+     * app's own runtime access to it is unrestricted - this location is push-able from a PC with
+     * no such restriction. Reading it back requires READ_MEDIA_AUDIO (or READ_EXTERNAL_STORAGE
+     * pre-13) since it's outside the app's own sandbox; see HomeScreen for the permission request.
+     */
+    private fun importStagingDir(): File =
+        File(Environment.getExternalStorageDirectory(), "NeraMusicImport").apply { mkdirs() }
+
+    /**
+     * Bypasses the SAF folder picker entirely: scans [importStagingDir] recursively for audio
+     * files dropped there directly (e.g. via `adb push`), and imports each through the same
+     * dedup path as the other import flows.
+     *
+     * Files pushed via `adb`/other tools aren't owned by this app, so scoped storage denies
+     * `File.delete()` on them even with READ_MEDIA_AUDIO held (confirmed on-device: reads work,
+     * deletes silently return false) - deleting would need a MediaStore user-consent flow, which
+     * is exactly the kind of extra prompt this feature exists to avoid. Instead, a SharedPreferences
+     * fingerprint set (path+size+lastModified) tracks what's already been handled, so a later
+     * rescan only processes genuinely new files without needing write access to old ones.
+     */
+    suspend fun scanImportFolder(onProgress: (Int, Int) -> Unit = { _, _ -> }): ImportSummary = withContext(Dispatchers.IO) {
+        val staging = importStagingDir()
+        val allFiles = mutableListOf<File>()
+        collectAudioFiles(staging, allFiles)
+
+        val processed = processedStagingFiles()
+        val audioFiles = allFiles.filter { fingerprint(it) !in processed }
+
+        val existingKeys = trackDao.getAllTitleArtists().mapTo(mutableSetOf()) { it.dedupeKey() }
+        var imported = 0
+        var skipped = 0
+        audioFiles.forEachIndexed { index, file ->
+            if (importOne(Uri.fromFile(file), file.name, existingKeys)) imported++ else skipped++
+            processed.add(fingerprint(file))
+            file.delete() // best-effort; harmless if scoped storage denies it, see fingerprint set above
+            onProgress(index + 1, audioFiles.size)
+        }
+        saveProcessedStagingFiles(processed)
+        ImportSummary(imported, skipped)
+    }
+
+    private fun fingerprint(file: File): String = "${file.absolutePath}|${file.length()}|${file.lastModified()}"
+
+    private fun processedStagingFiles(): MutableSet<String> {
+        val prefs = context.getSharedPreferences(STAGING_PREFS_NAME, Context.MODE_PRIVATE)
+        return prefs.getStringSet(KEY_PROCESSED_STAGING_FILES, emptySet())!!.toMutableSet()
+    }
+
+    private fun saveProcessedStagingFiles(processed: Set<String>) {
+        context.getSharedPreferences(STAGING_PREFS_NAME, Context.MODE_PRIVATE)
+            .edit().putStringSet(KEY_PROCESSED_STAGING_FILES, processed).apply()
+    }
+
+    private fun collectAudioFiles(dir: File, out: MutableList<File>) {
+        dir.listFiles()?.forEach { child ->
+            when {
+                child.isDirectory -> collectAudioFiles(child, out)
+                child.isFile && isAudioFile(child.name) -> out.add(child)
+            }
+        }
+    }
+
+    private fun isAudioFile(name: String): Boolean =
+        name.substringAfterLast('.', "").lowercase() in AUDIO_EXTENSIONS
 
     /**
      * Copies [sourceUri] into app storage, reads its tags, and inserts it - unless a track with

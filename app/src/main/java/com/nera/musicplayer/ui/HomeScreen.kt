@@ -1,5 +1,9 @@
 package com.nera.musicplayer.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
+import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -31,6 +35,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -38,8 +43,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.nera.musicplayer.R
 import com.nera.musicplayer.data.LibrarySortOrder
@@ -73,6 +80,21 @@ fun HomeScreen(
     val importFolderLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.OpenDocumentTree()
     ) { treeUri -> treeUri?.let { libraryViewModel.importFolder(it) } }
+
+    val context = LocalContext.current
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { granted -> if (granted) libraryViewModel.rescanLibrary(showEmptyResult = false) }
+
+    // Scans the NeraMusicImport drop folder once on launch - the no-picker bypass for devices
+    // whose SAF folder picker has no working confirm action (see MusicRepository.scanImportFolder).
+    LaunchedEffect(Unit) {
+        if (hasAudioPermission(context)) {
+            libraryViewModel.rescanLibrary(showEmptyResult = false)
+        } else {
+            audioPermissionLauncher.launch(requiredAudioPermission())
+        }
+    }
 
     Scaffold(
         topBar = {
@@ -111,6 +133,17 @@ fun HomeScreen(
                                 onClick = {
                                     showOverflowMenu = false
                                     importFolderLauncher.launch(null)
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Rescan library") },
+                                onClick = {
+                                    showOverflowMenu = false
+                                    if (hasAudioPermission(context)) {
+                                        libraryViewModel.rescanLibrary()
+                                    } else {
+                                        audioPermissionLauncher.launch(requiredAudioPermission())
+                                    }
                                 }
                             )
                             DropdownMenuItem(
@@ -243,6 +276,13 @@ fun HomeScreen(
         )
     }
 }
+
+private fun requiredAudioPermission(): String =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) Manifest.permission.READ_MEDIA_AUDIO
+    else Manifest.permission.READ_EXTERNAL_STORAGE
+
+private fun hasAudioPermission(context: Context): Boolean =
+    ContextCompat.checkSelfPermission(context, requiredAudioPermission()) == PackageManager.PERMISSION_GRANTED
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
