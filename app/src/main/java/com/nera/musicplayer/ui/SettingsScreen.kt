@@ -1,5 +1,6 @@
 package com.nera.musicplayer.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +36,7 @@ fun SettingsScreen(
     val currentTheme by settingsViewModel.theme.collectAsState()
     val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
     val rotateAlbumArt by settingsViewModel.rotateAlbumArt.collectAsState()
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {

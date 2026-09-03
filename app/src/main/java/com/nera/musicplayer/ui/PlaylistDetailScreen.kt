@@ -1,5 +1,6 @@
 package com.nera.musicplayer.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -50,6 +51,7 @@ fun PlaylistDetailScreen(
     val playlistTracks by playlistViewModel.selectedPlaylistTracks.collectAsState()
     val allTracks by libraryViewModel.tracks.collectAsState()
     val playerState by playerViewModel.uiState.collectAsState()
+    BackHandler(onBack = onBack)
 
     var showAddDialog by remember { mutableStateOf(false) }
     var showRenameDialog by remember { mutableStateOf(false) }

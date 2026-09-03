@@ -1,5 +1,6 @@
 package com.nera.musicplayer.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
@@ -48,6 +49,7 @@ fun PlaylistsScreen(
     val playlists by playlistViewModel.playlists.collectAsState()
     val isRegenerating by playlistViewModel.isRegenerating.collectAsState()
     var showCreateDialog by remember { mutableStateOf(false) }
+    BackHandler(onBack = onBack)
 
     Scaffold(
         topBar = {
