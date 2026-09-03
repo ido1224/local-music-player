@@ -39,9 +39,11 @@ fun PlaybackBar(
     onSkipPrevious: () -> Unit = {},
     onSkipNext: () -> Unit = {},
     onToggleShuffle: () -> Unit = {},
-    onCycleRepeat: () -> Unit = {}
+    onCycleRepeat: () -> Unit = {},
+    onOpenNowPlaying: () -> Unit = {}
 ) {
     Surface(
+        onClick = onOpenNowPlaying,
         color = MaterialTheme.colorScheme.surfaceVariant,
         tonalElevation = 3.dp
     ) {

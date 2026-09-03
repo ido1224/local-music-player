@@ -116,7 +116,8 @@ fun PlaylistDetailScreen(
                 onSkipPrevious = { playerViewModel.skipToPrevious() },
                 onSkipNext = { playerViewModel.skipToNext() },
                 onToggleShuffle = { playerViewModel.toggleShuffle() },
-                onCycleRepeat = { playerViewModel.cycleRepeatMode() }
+                onCycleRepeat = { playerViewModel.cycleRepeatMode() },
+                onOpenNowPlaying = onOpenNowPlaying
             )
         }
     ) { padding ->

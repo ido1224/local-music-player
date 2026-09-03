@@ -58,6 +58,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -139,10 +141,17 @@ fun NowPlayingScreen(
         }
     }
 
+    // Tracks the disc's on-screen center (relative to this outer Box) so the glow can be centered
+    // on it directly, rather than on the screen's own center - which sits lower than the disc once
+    // the title/slider/controls below it are accounted for.
+    var outerCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var discCenter by remember { mutableStateOf(Offset.Unspecified) }
+
     Box(
         modifier = Modifier
             .fillMaxSize()
             .background(MaterialTheme.colorScheme.background)
+            .onGloballyPositioned { outerCoordinates = it }
     ) {
         val colors = paletteColors
         if (vinylEffectEnabled && colors != null) {
@@ -156,7 +165,8 @@ fun NowPlayingScreen(
                                 primaryColor.copy(alpha = 0.10f + 0.30f * pulse.value),
                                 secondaryColor.copy(alpha = 0.05f + 0.12f * pulse.value),
                                 Color.Transparent
-                            )
+                            ),
+                            center = discCenter
                         )
                     )
             )
@@ -189,6 +199,14 @@ fun NowPlayingScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .aspectRatio(1f)
+                        .onGloballyPositioned { coordinates ->
+                            outerCoordinates?.let { outer ->
+                                discCenter = outer.localPositionOf(
+                                    coordinates,
+                                    Offset(coordinates.size.width / 2f, coordinates.size.height / 2f)
+                                )
+                            }
+                        }
                         .rotate(if (vinylEffectEnabled) artRotation.value else 0f)
                         .clip(if (vinylEffectEnabled) CircleShape else RoundedCornerShape(24.dp))
                         .background(if (vinylEffectEnabled) VinylDiscColor else MaterialTheme.colorScheme.primaryContainer),
