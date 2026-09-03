@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.nera.musicplayer.data.ImportSummary
 import com.nera.musicplayer.data.LibrarySortOrder
 import com.nera.musicplayer.data.MusicRepository
+import com.nera.musicplayer.data.PlaylistRepository
 import com.nera.musicplayer.data.Track
 import com.nera.musicplayer.data.TrackWithFeatures
 import com.nera.musicplayer.similarity.SimilarityEngine
@@ -23,6 +24,7 @@ import kotlinx.coroutines.launch
 class LibraryViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository = MusicRepository(application)
+    private val playlistRepository = PlaylistRepository(application)
 
     val tracks: StateFlow<List<Track>> = repository.tracks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
@@ -74,7 +76,8 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
         viewModelScope.launch {
             _isImporting.value = true
             try {
-                repository.importTracks(uris)
+                val summary = repository.importTracks(uris)
+                regenerateIfNewTracks(summary)
             } finally {
                 _isImporting.value = false
             }
@@ -91,11 +94,17 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                     _importProgress.value = current to total
                 }
                 _lastImportSummary.value = summary
+                regenerateIfNewTracks(summary)
             } finally {
                 _isImporting.value = false
                 _importProgress.value = null
             }
         }
+    }
+
+    /** Reclusters AI playlists after an import that actually added tracks, so they're ready without a manual refresh tap. */
+    private suspend fun regenerateIfNewTracks(summary: ImportSummary) {
+        if (summary.imported > 0) playlistRepository.regenerateGeneratedPlaylists()
     }
 
     /**
@@ -116,6 +125,7 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
                 if (showEmptyResult || summary.imported > 0 || summary.skippedDuplicates > 0) {
                     _lastImportSummary.value = summary
                 }
+                regenerateIfNewTracks(summary)
             } finally {
                 _isImporting.value = false
                 _importProgress.value = null

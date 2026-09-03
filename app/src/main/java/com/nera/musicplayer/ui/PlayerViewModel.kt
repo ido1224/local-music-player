@@ -49,6 +49,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             val c = MediaController.Builder(context, sessionToken).buildAsync().await()
             controller = c
             _uiState.value = _uiState.value.copy(
+                trackTitle = c.currentMediaItem?.mediaMetadata?.title?.toString(),
+                isPlaying = c.isPlaying,
                 shuffleEnabled = c.shuffleModeEnabled,
                 repeatMode = c.repeatMode
             )
