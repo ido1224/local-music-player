@@ -122,13 +122,14 @@ fun PlaybackBar(
     }
 }
 
-private fun repeatLabel(@Player.RepeatMode repeatMode: Int): String = when (repeatMode) {
+/** Shared with NowPlayingScreen, which mirrors these same controls at a larger size. */
+internal fun repeatLabel(@Player.RepeatMode repeatMode: Int): String = when (repeatMode) {
     Player.REPEAT_MODE_ONE -> "Repeat one"
     Player.REPEAT_MODE_ALL -> "Repeat all"
     else -> "Repeat off"
 }
 
-private fun formatMs(ms: Long): String {
+internal fun formatMs(ms: Long): String {
     val totalSeconds = (ms / 1000).coerceAtLeast(0)
     val minutes = totalSeconds / 60
     val seconds = totalSeconds % 60

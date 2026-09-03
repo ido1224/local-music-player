@@ -43,7 +43,8 @@ fun PlaylistDetailScreen(
     playerViewModel: PlayerViewModel,
     libraryViewModel: LibraryViewModel,
     playlistViewModel: PlaylistViewModel,
-    onBack: () -> Unit
+    onBack: () -> Unit,
+    onOpenNowPlaying: () -> Unit = {}
 ) {
     val playlist by playlistViewModel.selectedPlaylist.collectAsState()
     val playlistTracks by playlistViewModel.selectedPlaylistTracks.collectAsState()
@@ -135,7 +136,10 @@ fun PlaylistDetailScreen(
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .clickable { playerViewModel.playQueue(playlistTracks, index) },
+                                .clickable {
+                                    playerViewModel.playQueue(playlistTracks, index)
+                                    onOpenNowPlaying()
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             val subtitle = listOfNotNull(track.artist, track.album).joinToString(" — ")

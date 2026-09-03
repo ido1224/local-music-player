@@ -60,7 +60,8 @@ fun HomeScreen(
     libraryViewModel: LibraryViewModel = viewModel(),
     settingsViewModel: SettingsViewModel = viewModel(),
     onOpenPlaylists: () -> Unit = {},
-    onOpenSettings: () -> Unit = {}
+    onOpenSettings: () -> Unit = {},
+    onOpenNowPlaying: () -> Unit = {}
 ) {
     val playerState by playerViewModel.uiState.collectAsState()
     val tracks by libraryViewModel.tracksWithFeatures.collectAsState()
@@ -241,7 +242,10 @@ fun HomeScreen(
                                 bpm = item.bpm,
                                 energy = item.energy,
                                 showBadges = showAnalysisBadges,
-                                onClick = { playerViewModel.playQueue(tracks.map { it.track }, index) },
+                                onClick = {
+                                    playerViewModel.playQueue(tracks.map { it.track }, index)
+                                    onOpenNowPlaying()
+                                },
                                 onRemoveFromLibrary = { libraryViewModel.removeFromLibrary(item.track) },
                                 onDeleteFile = { libraryViewModel.deleteTrackFile(item.track) },
                                 onMoreLikeThis = if (item.bpm != null && item.energy != null) {

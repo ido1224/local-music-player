@@ -32,6 +32,9 @@ private val AUDIO_EXTENSIONS = setOf("mp3", "wav", "m4a", "flac", "ogg", "aac", 
 private const val STAGING_PREFS_NAME = "nera_import_staging"
 private const val KEY_PROCESSED_STAGING_FILES = "processed_files"
 
+private const val ALBUM_ART_PREFS_NAME = "nera_album_art"
+private const val KEY_ALBUM_ART_BACKFILLED = "backfilled_v1"
+
 class MusicRepository(private val context: Context) {
 
     private val trackDao = AppDatabase.getInstance(context).trackDao()
@@ -202,7 +205,8 @@ class MusicRepository(private val context: Context) {
                 durationMs = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
                     ?.toLongOrNull() ?: 0L,
                 dateAdded = System.currentTimeMillis(),
-                fileSizeBytes = destFile.length()
+                fileSizeBytes = destFile.length(),
+                albumArtPath = extractAlbumArt(retriever)
             )
         } finally {
             retriever.release()
@@ -222,6 +226,56 @@ class MusicRepository(private val context: Context) {
 
     private fun TrackTitleArtist.dedupeKey(): String =
         "${title.trim().lowercase()}|${artist?.trim()?.lowercase().orEmpty()}"
+
+    private fun albumArtDir(): File = File(context.filesDir, "album_art").apply { mkdirs() }
+
+    /**
+     * Saves [retriever]'s embedded picture (if any) as its own file rather than inline in Room -
+     * keeps track rows small and lets the art be loaded lazily/cached by an image loader instead
+     * of round-tripping through the DB on every recomposition. Returns null (not an error) when
+     * the track genuinely has no embedded art, which is a normal, expected state.
+     */
+    private fun extractAlbumArt(retriever: MediaMetadataRetriever): String? {
+        val art = retriever.embeddedPicture ?: return null
+        val artFile = File(albumArtDir(), "${UUID.randomUUID()}.jpg")
+        return try {
+            artFile.writeBytes(art)
+            artFile.absolutePath
+        } catch (e: Exception) {
+            Log.w(TAG, "Failed to save extracted album art", e)
+            null
+        }
+    }
+
+    /**
+     * One-time pass for tracks imported before album-art extraction existed (2026-09-03, added
+     * alongside the Track.albumArtPath column) - every import path copies the source file into
+     * app storage (see importOne), so it's still sitting at each track's own `uri` and can be
+     * re-opened here without re-importing or touching any other field. Gated by a SharedPreferences
+     * flag rather than an `albumArtPath IS NULL` re-check on every launch, so a track whose file
+     * genuinely has no embedded picture doesn't get re-scanned forever - null is a valid, final
+     * outcome for those, not "not yet attempted".
+     */
+    suspend fun backfillAlbumArtIfNeeded() = withContext(Dispatchers.IO) {
+        val prefs = context.getSharedPreferences(ALBUM_ART_PREFS_NAME, Context.MODE_PRIVATE)
+        if (prefs.getBoolean(KEY_ALBUM_ART_BACKFILLED, false)) return@withContext
+
+        for (track in trackDao.getTracksMissingAlbumArt()) {
+            val file = try { File(URI(track.uri)) } catch (e: Exception) { continue }
+            if (!file.exists()) continue
+
+            val retriever = MediaMetadataRetriever()
+            try {
+                retriever.setDataSource(file.absolutePath)
+                extractAlbumArt(retriever)?.let { path -> trackDao.updateAlbumArtPath(track.id, path) }
+            } catch (e: Exception) {
+                Log.w(TAG, "Album art backfill failed for track ${track.id} (${track.title})", e)
+            } finally {
+                retriever.release()
+            }
+        }
+        prefs.edit().putBoolean(KEY_ALBUM_ART_BACKFILLED, true).apply()
+    }
 
     /**
      * Runs once per track at import time (not per-play) and caches the result -

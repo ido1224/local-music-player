@@ -60,6 +60,13 @@ interface TrackDao {
     @Query("SELECT title, artist FROM tracks")
     suspend fun getAllTitleArtists(): List<TrackTitleArtist>
 
+    /** For the one-time album-art backfill (see MusicRepository.backfillAlbumArtIfNeeded) - not used for anything reactive. */
+    @Query("SELECT * FROM tracks WHERE albumArtPath IS NULL")
+    suspend fun getTracksMissingAlbumArt(): List<Track>
+
+    @Query("UPDATE tracks SET albumArtPath = :albumArtPath WHERE id = :trackId")
+    suspend fun updateAlbumArtPath(trackId: Long, albumArtPath: String?)
+
     @Insert
     suspend fun insert(track: Track): Long
 

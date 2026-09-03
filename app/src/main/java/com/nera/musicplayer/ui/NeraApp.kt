@@ -12,6 +12,7 @@ private sealed class Screen {
     data object Playlists : Screen()
     data object PlaylistDetail : Screen()
     data object Settings : Screen()
+    data object NowPlaying : Screen()
 }
 
 @Composable
@@ -29,7 +30,8 @@ fun NeraApp(
             libraryViewModel = libraryViewModel,
             settingsViewModel = settingsViewModel,
             onOpenPlaylists = { screen = Screen.Playlists },
-            onOpenSettings = { screen = Screen.Settings }
+            onOpenSettings = { screen = Screen.Settings },
+            onOpenNowPlaying = { screen = Screen.NowPlaying }
         )
 
         Screen.Playlists -> PlaylistsScreen(
@@ -45,11 +47,17 @@ fun NeraApp(
             playerViewModel = playerViewModel,
             libraryViewModel = libraryViewModel,
             playlistViewModel = playlistViewModel,
-            onBack = { screen = Screen.Playlists }
+            onBack = { screen = Screen.Playlists },
+            onOpenNowPlaying = { screen = Screen.NowPlaying }
         )
 
         Screen.Settings -> SettingsScreen(
             settingsViewModel = settingsViewModel,
+            onBack = { screen = Screen.Home }
+        )
+
+        Screen.NowPlaying -> NowPlayingScreen(
+            playerViewModel = playerViewModel,
             onBack = { screen = Screen.Home }
         )
     }

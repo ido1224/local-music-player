@@ -18,11 +18,14 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.guava.await
 import kotlinx.coroutines.launch
+import java.io.File
 
 private const val LISTEN_COMPLETE_THRESHOLD = 0.8f
 
 data class PlayerUiState(
     val trackTitle: String? = null,
+    val artist: String? = null,
+    val albumArtUri: Uri? = null,
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -50,6 +53,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
             controller = c
             _uiState.value = _uiState.value.copy(
                 trackTitle = c.currentMediaItem?.mediaMetadata?.title?.toString(),
+                artist = c.currentMediaItem?.mediaMetadata?.artist?.toString(),
+                albumArtUri = c.currentMediaItem?.mediaMetadata?.artworkUri,
                 isPlaying = c.isPlaying,
                 shuffleEnabled = c.shuffleModeEnabled,
                 repeatMode = c.repeatMode
@@ -63,6 +68,8 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                     loggedListenForMediaId = null
                     _uiState.value = _uiState.value.copy(
                         trackTitle = mediaItem?.mediaMetadata?.title?.toString(),
+                        artist = mediaItem?.mediaMetadata?.artist?.toString(),
+                        albumArtUri = mediaItem?.mediaMetadata?.artworkUri,
                         durationMs = 0L
                     )
                 }
@@ -168,6 +175,7 @@ private fun Track.toMediaItem(): MediaItem =
             MediaMetadata.Builder()
                 .setTitle(title)
                 .setArtist(artist)
+                .apply { albumArtPath?.let { setArtworkUri(Uri.fromFile(File(it))) } }
                 .build()
         )
         .build()

@@ -26,6 +26,12 @@ class LibraryViewModel(application: Application) : AndroidViewModel(application)
     private val repository = MusicRepository(application)
     private val playlistRepository = PlaylistRepository(application)
 
+    init {
+        // One-time backfill for tracks imported before album-art extraction existed; see
+        // MusicRepository.backfillAlbumArtIfNeeded for why this is safe to run unconditionally.
+        viewModelScope.launch { repository.backfillAlbumArtIfNeeded() }
+    }
+
     val tracks: StateFlow<List<Track>> = repository.tracks
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
 

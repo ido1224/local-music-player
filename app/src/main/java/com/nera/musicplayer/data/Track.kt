@@ -14,5 +14,7 @@ data class Track(
     val year: Int?,
     val durationMs: Long,
     val dateAdded: Long,
-    val fileSizeBytes: Long
+    val fileSizeBytes: Long,
+    /** Absolute path to the extracted embedded-art file in app storage, or null if the track has none. */
+    val albumArtPath: String? = null
 )
