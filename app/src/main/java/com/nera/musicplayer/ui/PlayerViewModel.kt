@@ -10,6 +10,7 @@ import androidx.media3.common.MediaMetadata
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
+import com.nera.musicplayer.data.AppDatabase
 import com.nera.musicplayer.data.ListeningRepository
 import com.nera.musicplayer.data.Track
 import com.nera.musicplayer.playback.PlaybackService
@@ -26,6 +27,8 @@ data class PlayerUiState(
     val trackTitle: String? = null,
     val artist: String? = null,
     val albumArtUri: Uri? = null,
+    /** Cached tempo for the current track, looked up by mediaId once analysis exists for it. Null while unknown/unanalyzed. */
+    val bpm: Float? = null,
     val isPlaying: Boolean = false,
     val positionMs: Long = 0L,
     val durationMs: Long = 0L,
@@ -39,6 +42,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
     val uiState: StateFlow<PlayerUiState> = _uiState
 
     private val listeningRepository = ListeningRepository(application)
+    private val trackAudioFeaturesDao = AppDatabase.getInstance(application).trackAudioFeaturesDao()
 
     private var controller: MediaController? = null
 
@@ -59,6 +63,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 shuffleEnabled = c.shuffleModeEnabled,
                 repeatMode = c.repeatMode
             )
+            updateBpm(c.currentMediaItem?.mediaId)
             c.addListener(object : Player.Listener {
                 override fun onIsPlayingChanged(isPlaying: Boolean) {
                     _uiState.value = _uiState.value.copy(isPlaying = isPlaying)
@@ -72,6 +77,7 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                         albumArtUri = mediaItem?.mediaMetadata?.artworkUri,
                         durationMs = 0L
                     )
+                    updateBpm(mediaItem?.mediaId)
                 }
 
                 override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) {
@@ -98,6 +104,19 @@ class PlayerViewModel(application: Application) : AndroidViewModel(application) 
                 }
                 delay(500)
             }
+        }
+    }
+
+    /** Looks up the cached tempo for [mediaId] (a Track.id) and updates uiState.bpm once it resolves. */
+    private fun updateBpm(mediaId: String?) {
+        val trackId = mediaId?.toLongOrNull()
+        if (trackId == null) {
+            _uiState.value = _uiState.value.copy(bpm = null)
+            return
+        }
+        viewModelScope.launch {
+            val bpm = trackAudioFeaturesDao.getForTrack(trackId)?.bpm
+            _uiState.value = _uiState.value.copy(bpm = bpm)
         }
     }
 

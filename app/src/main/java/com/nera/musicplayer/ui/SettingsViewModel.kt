@@ -13,7 +13,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val theme: StateFlow<AppTheme> = themePreferences.theme
     val showAnalysisBadges: StateFlow<Boolean> = libraryDisplayPreferences.showAnalysisBadges
-    val rotateAlbumArt: StateFlow<Boolean> = libraryDisplayPreferences.rotateAlbumArt
+    val vinylEffectEnabled: StateFlow<Boolean> = libraryDisplayPreferences.vinylEffectEnabled
 
     fun setTheme(theme: AppTheme) {
         themePreferences.setTheme(theme)
@@ -23,7 +23,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
         libraryDisplayPreferences.setShowAnalysisBadges(show)
     }
 
-    fun setRotateAlbumArt(rotate: Boolean) {
-        libraryDisplayPreferences.setRotateAlbumArt(rotate)
+    fun setVinylEffectEnabled(enabled: Boolean) {
+        libraryDisplayPreferences.setVinylEffectEnabled(enabled)
     }
 }

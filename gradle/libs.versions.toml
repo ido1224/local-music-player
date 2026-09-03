@@ -16,6 +16,7 @@ androidxTestExtJunit = "1.2.1"
 androidxTestRunner = "1.6.2"
 tarsosdsp = "2.5"
 coil = "2.7.0"
+palette = "1.0.0"
 
 [libraries]
 core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
@@ -44,6 +45,7 @@ androidx-test-ext-junit = { group = "androidx.test.ext", name = "junit", version
 androidx-test-runner = { group = "androidx.test", name = "runner", version.ref = "androidxTestRunner" }
 tarsosdsp-core = { group = "be.tarsos.dsp", name = "core", version.ref = "tarsosdsp" }
 coil-compose = { group = "io.coil-kt", name = "coil-compose", version.ref = "coil" }
+palette-ktx = { group = "androidx.palette", name = "palette-ktx", version.ref = "palette" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

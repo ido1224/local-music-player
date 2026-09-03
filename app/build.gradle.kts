@@ -96,6 +96,7 @@ dependencies {
     implementation(libs.tarsosdsp.core)
 
     implementation(libs.coil.compose)
+    implementation(libs.palette.ktx)
 
     testImplementation(libs.junit)
 

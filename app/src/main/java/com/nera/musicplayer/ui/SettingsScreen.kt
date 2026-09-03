@@ -35,7 +35,7 @@ fun SettingsScreen(
 ) {
     val currentTheme by settingsViewModel.theme.collectAsState()
     val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
-    val rotateAlbumArt by settingsViewModel.rotateAlbumArt.collectAsState()
+    val vinylEffectEnabled by settingsViewModel.vinylEffectEnabled.collectAsState()
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -82,10 +82,10 @@ fun SettingsScreen(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Rotate album art")
+                Text("Vinyl record effect")
                 Switch(
-                    checked = rotateAlbumArt,
-                    onCheckedChange = { settingsViewModel.setRotateAlbumArt(it) }
+                    checked = vinylEffectEnabled,
+                    onCheckedChange = { settingsViewModel.setVinylEffectEnabled(it) }
                 )
             }
         }

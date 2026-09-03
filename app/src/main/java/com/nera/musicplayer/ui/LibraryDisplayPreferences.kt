@@ -6,7 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 private const val PREFS_NAME = "nera_settings"
 private const val KEY_SHOW_ANALYSIS_BADGES = "show_analysis_badges"
-private const val KEY_ROTATE_ALBUM_ART = "rotate_album_art"
+private const val KEY_VINYL_EFFECT_ENABLED = "vinyl_effect_enabled"
 
 /** Same pattern as ThemePreferences - a single persisted boolean via plain SharedPreferences. */
 class LibraryDisplayPreferences(context: Context) {
@@ -15,16 +15,17 @@ class LibraryDisplayPreferences(context: Context) {
     private val _showAnalysisBadges = MutableStateFlow(prefs.getBoolean(KEY_SHOW_ANALYSIS_BADGES, true))
     val showAnalysisBadges: StateFlow<Boolean> = _showAnalysisBadges
 
-    private val _rotateAlbumArt = MutableStateFlow(prefs.getBoolean(KEY_ROTATE_ALBUM_ART, true))
-    val rotateAlbumArt: StateFlow<Boolean> = _rotateAlbumArt
+    /** Gates the whole Now Playing vinyl look: rotation, the circular label/groove-ring/spindle disc, and the BPM/color-pulse background. */
+    private val _vinylEffectEnabled = MutableStateFlow(prefs.getBoolean(KEY_VINYL_EFFECT_ENABLED, true))
+    val vinylEffectEnabled: StateFlow<Boolean> = _vinylEffectEnabled
 
     fun setShowAnalysisBadges(show: Boolean) {
         _showAnalysisBadges.value = show
         prefs.edit().putBoolean(KEY_SHOW_ANALYSIS_BADGES, show).apply()
     }
 
-    fun setRotateAlbumArt(rotate: Boolean) {
-        _rotateAlbumArt.value = rotate
-        prefs.edit().putBoolean(KEY_ROTATE_ALBUM_ART, rotate).apply()
+    fun setVinylEffectEnabled(enabled: Boolean) {
+        _vinylEffectEnabled.value = enabled
+        prefs.edit().putBoolean(KEY_VINYL_EFFECT_ENABLED, enabled).apply()
     }
 }
