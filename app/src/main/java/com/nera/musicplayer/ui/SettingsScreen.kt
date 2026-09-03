@@ -34,6 +34,7 @@ fun SettingsScreen(
 ) {
     val currentTheme by settingsViewModel.theme.collectAsState()
     val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
+    val rotateAlbumArt by settingsViewModel.rotateAlbumArt.collectAsState()
 
     Scaffold(
         topBar = {
@@ -72,6 +73,17 @@ fun SettingsScreen(
                 Switch(
                     checked = showAnalysisBadges,
                     onCheckedChange = { settingsViewModel.setShowAnalysisBadges(it) }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text("Rotate album art")
+                Switch(
+                    checked = rotateAlbumArt,
+                    onCheckedChange = { settingsViewModel.setRotateAlbumArt(it) }
                 )
             }
         }

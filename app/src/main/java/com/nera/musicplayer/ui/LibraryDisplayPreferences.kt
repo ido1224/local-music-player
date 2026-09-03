@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.StateFlow
 
 private const val PREFS_NAME = "nera_settings"
 private const val KEY_SHOW_ANALYSIS_BADGES = "show_analysis_badges"
+private const val KEY_ROTATE_ALBUM_ART = "rotate_album_art"
 
 /** Same pattern as ThemePreferences - a single persisted boolean via plain SharedPreferences. */
 class LibraryDisplayPreferences(context: Context) {
@@ -14,8 +15,16 @@ class LibraryDisplayPreferences(context: Context) {
     private val _showAnalysisBadges = MutableStateFlow(prefs.getBoolean(KEY_SHOW_ANALYSIS_BADGES, true))
     val showAnalysisBadges: StateFlow<Boolean> = _showAnalysisBadges
 
+    private val _rotateAlbumArt = MutableStateFlow(prefs.getBoolean(KEY_ROTATE_ALBUM_ART, true))
+    val rotateAlbumArt: StateFlow<Boolean> = _rotateAlbumArt
+
     fun setShowAnalysisBadges(show: Boolean) {
         _showAnalysisBadges.value = show
         prefs.edit().putBoolean(KEY_SHOW_ANALYSIS_BADGES, show).apply()
+    }
+
+    fun setRotateAlbumArt(rotate: Boolean) {
+        _rotateAlbumArt.value = rotate
+        prefs.edit().putBoolean(KEY_ROTATE_ALBUM_ART, rotate).apply()
     }
 }

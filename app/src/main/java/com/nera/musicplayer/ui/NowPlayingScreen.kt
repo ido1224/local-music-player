@@ -64,14 +64,16 @@ import coil.compose.AsyncImage
 @Composable
 fun NowPlayingScreen(
     playerViewModel: PlayerViewModel,
+    settingsViewModel: SettingsViewModel,
     onBack: () -> Unit
 ) {
     val state by playerViewModel.uiState.collectAsState()
+    val rotateAlbumArt by settingsViewModel.rotateAlbumArt.collectAsState()
     BackHandler(onBack = onBack)
 
     val artRotation = remember { Animatable(0f) }
-    LaunchedEffect(state.isPlaying) {
-        if (state.isPlaying) {
+    LaunchedEffect(state.isPlaying, rotateAlbumArt) {
+        if (state.isPlaying && rotateAlbumArt) {
             artRotation.animateTo(
                 targetValue = artRotation.value + 360f,
                 animationSpec = infiniteRepeatable(
@@ -105,8 +107,8 @@ fun NowPlayingScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .aspectRatio(1f)
-                    .rotate(artRotation.value)
-                    .clip(RoundedCornerShape(24.dp))
+                    .rotate(if (rotateAlbumArt) artRotation.value else 0f)
+                    .clip(if (rotateAlbumArt) CircleShape else RoundedCornerShape(24.dp))
                     .background(MaterialTheme.colorScheme.primaryContainer),
                 contentAlignment = Alignment.Center
             ) {

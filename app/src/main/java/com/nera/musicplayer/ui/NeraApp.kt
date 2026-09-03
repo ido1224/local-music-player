@@ -58,6 +58,7 @@ fun NeraApp(
 
         Screen.NowPlaying -> NowPlayingScreen(
             playerViewModel = playerViewModel,
+            settingsViewModel = settingsViewModel,
             onBack = { screen = Screen.Home }
         )
     }

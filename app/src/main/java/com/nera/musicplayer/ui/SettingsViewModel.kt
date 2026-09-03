@@ -13,6 +13,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     val theme: StateFlow<AppTheme> = themePreferences.theme
     val showAnalysisBadges: StateFlow<Boolean> = libraryDisplayPreferences.showAnalysisBadges
+    val rotateAlbumArt: StateFlow<Boolean> = libraryDisplayPreferences.rotateAlbumArt
 
     fun setTheme(theme: AppTheme) {
         themePreferences.setTheme(theme)
@@ -20,5 +21,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setShowAnalysisBadges(show: Boolean) {
         libraryDisplayPreferences.setShowAnalysisBadges(show)
+    }
+
+    fun setRotateAlbumArt(rotate: Boolean) {
+        libraryDisplayPreferences.setRotateAlbumArt(rotate)
     }
 }
