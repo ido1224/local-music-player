@@ -14,6 +14,7 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
     val theme: StateFlow<AppTheme> = themePreferences.theme
     val showAnalysisBadges: StateFlow<Boolean> = libraryDisplayPreferences.showAnalysisBadges
     val vinylEffectEnabled: StateFlow<Boolean> = libraryDisplayPreferences.vinylEffectEnabled
+    val bassPulseGlowEnabled: StateFlow<Boolean> = libraryDisplayPreferences.bassPulseGlowEnabled
 
     fun setTheme(theme: AppTheme) {
         themePreferences.setTheme(theme)
@@ -25,5 +26,9 @@ class SettingsViewModel(application: Application) : AndroidViewModel(application
 
     fun setVinylEffectEnabled(enabled: Boolean) {
         libraryDisplayPreferences.setVinylEffectEnabled(enabled)
+    }
+
+    fun setBassPulseGlowEnabled(enabled: Boolean) {
+        libraryDisplayPreferences.setBassPulseGlowEnabled(enabled)
     }
 }

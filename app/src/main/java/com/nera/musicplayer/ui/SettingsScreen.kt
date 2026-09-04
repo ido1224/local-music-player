@@ -36,6 +36,7 @@ fun SettingsScreen(
     val currentTheme by settingsViewModel.theme.collectAsState()
     val showAnalysisBadges by settingsViewModel.showAnalysisBadges.collectAsState()
     val vinylEffectEnabled by settingsViewModel.vinylEffectEnabled.collectAsState()
+    val bassPulseGlowEnabled by settingsViewModel.bassPulseGlowEnabled.collectAsState()
     BackHandler(onBack = onBack)
 
     Scaffold(
@@ -86,6 +87,25 @@ fun SettingsScreen(
                 Switch(
                     checked = vinylEffectEnabled,
                     onCheckedChange = { settingsViewModel.setVinylEffectEnabled(it) }
+                )
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp).padding(start = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    "Bass pulse glow",
+                    color = if (vinylEffectEnabled) {
+                        MaterialTheme.colorScheme.onSurface
+                    } else {
+                        MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+                    }
+                )
+                Switch(
+                    checked = bassPulseGlowEnabled,
+                    onCheckedChange = { settingsViewModel.setBassPulseGlowEnabled(it) },
+                    enabled = vinylEffectEnabled
                 )
             }
         }

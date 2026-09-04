@@ -9,6 +9,7 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -48,6 +49,8 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,6 +60,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
@@ -68,7 +72,9 @@ import androidx.media3.common.Player
 import androidx.palette.graphics.Palette
 import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.atan2
 
 private val VinylDiscColor = Color(0xFF161616)
 private val VinylGrooveColor = Color.White
@@ -80,6 +86,14 @@ private const val PULSE_MIN = 0.12f
 private const val PULSE_ATTACK_MS = 70
 private const val PULSE_RELEASE_MS = 250
 private const val PULSE_SETTLE_MS = 600
+
+/**
+ * DJ-scratch-style drag-to-seek sensitivity: one full 360-degree drag around the disc seeks this
+ * many seconds. Tuned by feel, not derived from anything physical - lower feels twitchy for
+ * skimming a whole track, higher feels sluggish for small corrections.
+ */
+private const val SEEK_SECONDS_PER_ROTATION = 15f
+private const val SEEK_MS_PER_DEGREE = (SEEK_SECONDS_PER_ROTATION * 1000f) / 360f
 
 /**
  * Full-screen playback view - large album art (or a themed placeholder when the track has none),
@@ -103,11 +117,19 @@ fun NowPlayingScreen(
 ) {
     val state by playerViewModel.uiState.collectAsState()
     val vinylEffectEnabled by settingsViewModel.vinylEffectEnabled.collectAsState()
+    val bassPulseGlowEnabled by settingsViewModel.bassPulseGlowEnabled.collectAsState()
     BackHandler(onBack = onBack)
 
+    // Always reads the latest uiState even from inside the long-lived drag-gesture coroutine
+    // below (pointerInput's block only runs once per key, so a plain captured `state` would
+    // otherwise freeze at whatever it was when the gesture detector was first installed).
+    val latestState = rememberUpdatedState(state)
+
+    var isDraggingDisc by remember { mutableStateOf(false) }
+
     val artRotation = remember { Animatable(0f) }
-    LaunchedEffect(state.isPlaying, vinylEffectEnabled) {
-        if (state.isPlaying && vinylEffectEnabled) {
+    LaunchedEffect(state.isPlaying, vinylEffectEnabled, isDraggingDisc) {
+        if (state.isPlaying && vinylEffectEnabled && !isDraggingDisc) {
             artRotation.animateTo(
                 targetValue = artRotation.value + 360f,
                 animationSpec = infiniteRepeatable(
@@ -131,8 +153,8 @@ fun NowPlayingScreen(
     // hit, slower release, so it reads as a VU-meter-style pulse instead of a generic animation.
     // Freezes wherever it last was on pause (no reset), then eases down to a resting glow.
     val pulse = remember { Animatable(0f) }
-    LaunchedEffect(state.isPlaying, vinylEffectEnabled) {
-        if (!state.isPlaying || !vinylEffectEnabled) {
+    LaunchedEffect(state.isPlaying, vinylEffectEnabled, bassPulseGlowEnabled) {
+        if (!state.isPlaying || !vinylEffectEnabled || !bassPulseGlowEnabled) {
             pulse.animateTo(PULSE_MIN, tween(PULSE_SETTLE_MS, easing = FastOutSlowInEasing))
             return@LaunchedEffect
         }
@@ -156,7 +178,7 @@ fun NowPlayingScreen(
             .onGloballyPositioned { outerCoordinates = it }
     ) {
         val colors = paletteColors
-        if (vinylEffectEnabled && colors != null) {
+        if (vinylEffectEnabled && bassPulseGlowEnabled && colors != null) {
             val (primaryColor, secondaryColor) = colors
             // The gradient's default radius (half the shorter screen dimension) lands almost
             // exactly on the disc's own edge - fillMaxWidth().aspectRatio(1f) gives the disc
@@ -207,6 +229,7 @@ fun NowPlayingScreen(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.Center
             ) {
+                val rotationScope = rememberCoroutineScope()
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -218,6 +241,47 @@ fun NowPlayingScreen(
                                     Offset(coordinates.size.width / 2f, coordinates.size.height / 2f)
                                 )
                             }
+                        }
+                        .pointerInput(Unit) {
+                            // Per-move angular delta around the disc's own center, not absolute
+                            // start/end angle - avoids wrap-around glitches at the 0/360 boundary
+                            // and naturally supports dragging more than one full turn.
+                            var center = Offset(size.width / 2f, size.height / 2f)
+                            var lastAngleDeg = 0f
+                            var accumulatedSeekMs = 0f
+                            var dragStartPositionMs = 0L
+                            detectDragGestures(
+                                onDragStart = { offset ->
+                                    center = Offset(size.width / 2f, size.height / 2f)
+                                    lastAngleDeg = angleDegrees(offset, center)
+                                    accumulatedSeekMs = 0f
+                                    dragStartPositionMs = latestState.value.positionMs
+                                    isDraggingDisc = true
+                                },
+                                onDrag = { change, _ ->
+                                    change.consume()
+                                    val currentAngleDeg = angleDegrees(change.position, center)
+                                    var deltaDeg = currentAngleDeg - lastAngleDeg
+                                    if (deltaDeg > 180f) deltaDeg -= 360f
+                                    else if (deltaDeg < -180f) deltaDeg += 360f
+                                    lastAngleDeg = currentAngleDeg
+
+                                    // Spin the disc itself with the finger (clockwise = positive,
+                                    // matching Modifier.rotate's convention) - reinforces the
+                                    // scratch feel instead of a frozen disc with numbers changing.
+                                    rotationScope.launch { artRotation.snapTo(artRotation.value + deltaDeg) }
+
+                                    accumulatedSeekMs += deltaDeg * SEEK_MS_PER_DEGREE
+                                    val durationMs = latestState.value.durationMs
+                                    if (durationMs > 0L) {
+                                        val target = (dragStartPositionMs + accumulatedSeekMs.toLong())
+                                            .coerceIn(0L, durationMs)
+                                        playerViewModel.seekTo(target)
+                                    }
+                                },
+                                onDragEnd = { isDraggingDisc = false },
+                                onDragCancel = { isDraggingDisc = false }
+                            )
                         }
                         .rotate(if (vinylEffectEnabled) artRotation.value else 0f)
                         .clip(if (vinylEffectEnabled) CircleShape else RoundedCornerShape(24.dp))
@@ -361,6 +425,17 @@ private fun AlbumArtOrPlaceholder(state: PlayerUiState, iconSize: Dp, modifier: 
             )
         }
     }
+}
+
+/**
+ * Angle of [point] relative to [center], in degrees, using screen coordinates (y grows downward).
+ * With that convention, atan2(dy, dx) already increases in the visually-clockwise direction, which
+ * matches Modifier.rotate's "positive degrees = clockwise" convention used for drag-to-seek above.
+ */
+private fun angleDegrees(point: Offset, center: Offset): Float {
+    val dx = point.x - center.x
+    val dy = point.y - center.y
+    return Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
 }
 
 /** Thin, low-contrast concentric circles etched into the ring outside the label, for vinyl groove texture. */
