@@ -74,7 +74,9 @@ import coil.compose.AsyncImage
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import kotlin.math.abs
 import kotlin.math.atan2
+import kotlin.math.roundToInt
 
 private val VinylDiscColor = Color(0xFF161616)
 private val VinylGrooveColor = Color.White
@@ -126,6 +128,10 @@ fun NowPlayingScreen(
     val latestState = rememberUpdatedState(state)
 
     var isDraggingDisc by remember { mutableStateOf(false) }
+    // Actual applied seek delta (post-clamping, see onDrag below) since the drag started - drives
+    // the live "+10s"/"-2s" indicator. Compose state (not a plain local var) since the indicator
+    // needs to recompose on every update, unlike the gesture's own internal angle bookkeeping.
+    var dragSeekDeltaMs by remember { mutableStateOf(0L) }
 
     val artRotation = remember { Animatable(0f) }
     LaunchedEffect(state.isPlaying, vinylEffectEnabled, isDraggingDisc) {
@@ -256,6 +262,7 @@ fun NowPlayingScreen(
                                     lastAngleDeg = angleDegrees(offset, center)
                                     accumulatedSeekMs = 0f
                                     dragStartPositionMs = latestState.value.positionMs
+                                    dragSeekDeltaMs = 0L
                                     isDraggingDisc = true
                                 },
                                 onDrag = { change, _ ->
@@ -276,11 +283,24 @@ fun NowPlayingScreen(
                                     if (durationMs > 0L) {
                                         val target = (dragStartPositionMs + accumulatedSeekMs.toLong())
                                             .coerceIn(0L, durationMs)
+                                        // The indicator shows the delta actually being applied, not
+                                        // the raw angle-derived accumulator - once the drag pushes
+                                        // past the start/end of the track and the target clamps,
+                                        // the two diverge and only this one still matches reality.
+                                        dragSeekDeltaMs = target - dragStartPositionMs
                                         playerViewModel.seekTo(target)
+                                    } else {
+                                        dragSeekDeltaMs = accumulatedSeekMs.toLong()
                                     }
                                 },
-                                onDragEnd = { isDraggingDisc = false },
-                                onDragCancel = { isDraggingDisc = false }
+                                onDragEnd = {
+                                    isDraggingDisc = false
+                                    dragSeekDeltaMs = 0L
+                                },
+                                onDragCancel = {
+                                    isDraggingDisc = false
+                                    dragSeekDeltaMs = 0L
+                                }
                             )
                         }
                         .rotate(if (vinylEffectEnabled) artRotation.value else 0f)
@@ -403,6 +423,22 @@ fun NowPlayingScreen(
                 }
             }
         }
+
+        // Live seek-delta readout for the drag-to-seek gesture - only visible while actively
+        // dragging the disc, drawn as the outermost Box's last child so it sits on top of
+        // everything else (background glow, Scaffold/topBar, disc) rather than fighting z-order.
+        if (isDraggingDisc) {
+            Text(
+                text = formatSeekDelta(dragSeekDeltaMs),
+                style = MaterialTheme.typography.titleLarge,
+                color = MaterialTheme.colorScheme.onPrimary,
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = 96.dp)
+                    .background(MaterialTheme.colorScheme.primary, RoundedCornerShape(16.dp))
+                    .padding(horizontal = 20.dp, vertical = 10.dp)
+            )
+        }
     }
 }
 
@@ -436,6 +472,16 @@ private fun angleDegrees(point: Offset, center: Offset): Float {
     val dx = point.x - center.x
     val dy = point.y - center.y
     return Math.toDegrees(atan2(dy, dx).toDouble()).toFloat()
+}
+
+/** Formats a signed seek delta for the live drag-to-seek indicator, e.g. 10_500L -> "+11s", -2_000L -> "-2s", 0L -> "0s". */
+private fun formatSeekDelta(deltaMs: Long): String {
+    val totalSeconds = (deltaMs / 1000.0).roundToInt()
+    return when {
+        totalSeconds > 0 -> "+${totalSeconds}s"
+        totalSeconds < 0 -> "-${abs(totalSeconds)}s"
+        else -> "0s"
+    }
 }
 
 /** Thin, low-contrast concentric circles etched into the ring outside the label, for vinyl groove texture. */
