@@ -75,6 +75,12 @@ private val VinylGrooveColor = Color.White
 private const val VINYL_LABEL_FRACTION = 0.42f
 private const val VINYL_SPINDLE_FRACTION = 0.05f
 
+/** Pulse never fully bottoms out - keeps a faint glow visible even in silence rather than blinking off. */
+private const val PULSE_MIN = 0.12f
+private const val PULSE_ATTACK_MS = 70
+private const val PULSE_RELEASE_MS = 250
+private const val PULSE_SETTLE_MS = 600
+
 /**
  * Full-screen playback view - large album art (or a themed placeholder when the track has none),
  * title/artist, seek bar with time counter, and the same transport controls as the compact
@@ -83,8 +89,10 @@ private const val VINYL_SPINDLE_FRACTION = 0.05f
  *
  * When the "Vinyl record effect" setting is on, the art renders as a spinning vinyl disc (circular
  * label, grooved ring, spindle hole) over a background that glows with colors extracted from the
- * art via the Palette API, pulsing on the track's own BPM when known (or a gentle ambient pulse
- * otherwise). Off, it's the original static square art with a plain themed background.
+ * art via the Palette API. The glow's intensity tracks the track's live bass energy (see
+ * SpectrumAudioProcessor) with fast-attack/slow-release ballistics, so it visibly pulses with the
+ * music itself rather than a fixed timer. Off, it's the original static square art with a plain
+ * themed background.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -119,25 +127,19 @@ fun NowPlayingScreen(
         }
     }
 
-    // Beat-synced when the track's BPM is known (analyzed at import time), otherwise a gentle
-    // ambient breathing glow. Either way it freezes in place on pause, same as the disc rotation.
+    // Driven by SpectrumAudioProcessor's live, per-track-normalized bass energy - fast attack on a
+    // hit, slower release, so it reads as a VU-meter-style pulse instead of a generic animation.
+    // Freezes wherever it last was on pause (no reset), then eases down to a resting glow.
     val pulse = remember { Animatable(0f) }
-    LaunchedEffect(state.isPlaying, vinylEffectEnabled, state.bpm) {
-        if (!state.isPlaying || !vinylEffectEnabled) return@LaunchedEffect
-        val bpm = state.bpm
-        if (bpm != null && bpm > 0f) {
-            val beatMs = (60_000f / bpm).toLong().coerceIn(200L, 2000L)
-            val attackMs = (beatMs / 6).coerceAtLeast(40L)
-            val releaseMs = (beatMs - attackMs).coerceAtLeast(40L)
-            while (true) {
-                pulse.animateTo(1f, tween(attackMs.toInt(), easing = LinearEasing))
-                pulse.animateTo(0.25f, tween(releaseMs.toInt(), easing = FastOutSlowInEasing))
-            }
-        } else {
-            while (true) {
-                pulse.animateTo(0.85f, tween(2600, easing = FastOutSlowInEasing))
-                pulse.animateTo(0.15f, tween(2600, easing = FastOutSlowInEasing))
-            }
+    LaunchedEffect(state.isPlaying, vinylEffectEnabled) {
+        if (!state.isPlaying || !vinylEffectEnabled) {
+            pulse.animateTo(PULSE_MIN, tween(PULSE_SETTLE_MS, easing = FastOutSlowInEasing))
+            return@LaunchedEffect
+        }
+        playerViewModel.bassEnergy.collect { bass ->
+            val target = PULSE_MIN + bass * (1f - PULSE_MIN)
+            val durationMs = if (target > pulse.value) PULSE_ATTACK_MS else PULSE_RELEASE_MS
+            pulse.animateTo(target, tween(durationMs, easing = LinearEasing))
         }
     }
 
@@ -156,17 +158,27 @@ fun NowPlayingScreen(
         val colors = paletteColors
         if (vinylEffectEnabled && colors != null) {
             val (primaryColor, secondaryColor) = colors
+            // The gradient's default radius (half the shorter screen dimension) lands almost
+            // exactly on the disc's own edge - fillMaxWidth().aspectRatio(1f) gives the disc
+            // that same radius - so the entire visible portion of the default gradient sits
+            // underneath the opaque disc and never actually shows. Base it on the larger
+            // dimension instead so it visibly bleeds past the disc into the surrounding area;
+            // scaling it slightly with pulse makes size (not just brightness) track bass energy.
+            val baseGlowRadius = outerCoordinates?.size
+                ?.let { maxOf(it.width, it.height) * 0.55f }
+                ?: 1000f
             Box(
                 modifier = Modifier
                     .fillMaxSize()
                     .background(
                         Brush.radialGradient(
                             colors = listOf(
-                                primaryColor.copy(alpha = 0.10f + 0.30f * pulse.value),
-                                secondaryColor.copy(alpha = 0.05f + 0.12f * pulse.value),
+                                primaryColor.copy(alpha = 0.18f + 0.55f * pulse.value),
+                                secondaryColor.copy(alpha = 0.10f + 0.35f * pulse.value),
                                 Color.Transparent
                             ),
-                            center = discCenter
+                            center = discCenter,
+                            radius = baseGlowRadius * (0.85f + 0.25f * pulse.value)
                         )
                     )
             )
