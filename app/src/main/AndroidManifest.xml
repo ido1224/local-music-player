@@ -3,6 +3,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_MEDIA_PLAYBACK" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- For the GitHub Releases update check only - see update/UpdateChecker.kt -->
+    <uses-permission android:name="android.permission.INTERNET" />
     <!-- For scanning the NeraMusicImport drop folder directly (no SAF picker) - see MusicRepository.scanImportFolder -->
     <uses-permission android:name="android.permission.READ_MEDIA_AUDIO" />
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="32" />
